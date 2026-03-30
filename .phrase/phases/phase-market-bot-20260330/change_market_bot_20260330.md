@@ -71,3 +71,5 @@ change068 日期:2026-03-30 | 文件:服务器:/home/ubuntu/stock-bot | 操作:M
 change069 日期:2026-03-31 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:财经清洗与候选抓取 | 说明:为财经快讯新增站点前缀/公告模板/小程序码清洗、低质量残句过滤与标题兜底逻辑，并把东方财富原始候选抓取量扩到目标条数的四倍以便筛掉噪音后仍保留 Top 10 | 关联:task016
 change070 日期:2026-03-31 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:财经筛选验证 | 说明:补充时代财经AI快讯、业绩说明会和公告说明会类样本，验证财经筛选会优先保留真正的市场动态 | 关联:task016
 change071 日期:2026-03-31 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充财经区会额外清洗公告腔和汇总晨报，并优先用完整标题替换低质量残句的说明 | 关联:task016
+change072 日期:2026-03-31 | 文件:.github/workflows/ci.yml | 操作:Add | 影响:GitHub 持续集成 | 说明:新增 GitHub Actions 工作流，在 push 到 main 和 Pull Request 时进入 miniprogram 子目录执行 npm test、lint、format:check 与 typecheck | 关联:task017
+change073 日期:2026-03-31 | 文件:README.md | 操作:Modify | 影响:仓库首页说明 | 说明:新增仓库根 README 的持续集成说明，便于在 GitHub 首页直接了解自动校验内容 | 关联:task017

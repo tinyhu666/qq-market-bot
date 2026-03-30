@@ -50,3 +50,12 @@ cd miniprogram
 set -a && source ./scripts/qq-market-bot.env && set +a
 node ./scripts/qq-market-bot.mjs --dry-run
 ```
+
+## 持续集成
+
+仓库已配置 GitHub Actions，在 `push` 到 `main` 或提交 Pull Request 时自动执行：
+
+- `npm test`
+- `npm run lint`
+- `npm run format:check`
+- `npm run typecheck`
