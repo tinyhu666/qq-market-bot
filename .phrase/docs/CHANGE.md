@@ -78,3 +78,6 @@
 - change074 日期:2026-03-31 | 文件:README.md | 操作:Modify | 影响:GitHub 仓库首页 | 说明:在仓库根 README 顶部新增 GitHub Actions CI badge，便于在仓库首页直接查看当前自动检查状态 | 关联:task018
 - change075 日期:2026-03-31 | 文件:GitHub仓库:tinyhu666/QQbotStock | 操作:Modify | 影响:仓库元信息 | 说明:将 GitHub 仓库描述更新为 QQ 行情播报机器人与微信小程序工程说明，并验证新仓库名 QQbotStock 已生效 | 关联:task018
 - change076 日期:2026-03-31 | 文件:GitHub仓库:tinyhu666/QQbotStock/main | 操作:Modify | 影响:分支保护检查 | 说明:检查私有仓库 main 分支保护时，GitHub 返回当前账号套餐需升级到 GitHub Pro 或改为公开仓库，故未强行写入失败配置 | 关联:task018
+- change077 日期:2026-03-31 | 文件:README.md | 操作:Modify | 影响:仓库首页说明 | 说明:以 GitHub 网页端当前 README 为准同步本地首页内容，并将标题和 CI badge 链接统一更新为 qq-market-bot | 关联:task019
+- change078 日期:2026-03-31 | 文件:GitHub仓库:tinyhu666/qq-market-bot | 操作:Modify | 影响:仓库名称与 URL | 说明:将 GitHub 私有仓库从 QQbotStock 更名为 qq-market-bot，统一仓库展示名称与远端地址 | 关联:task019
+- change079 日期:2026-03-31 | 文件:.git/config | 操作:Modify | 影响:origin 远端 | 说明:将本地 origin 更新为 git@github.com:tinyhu666/qq-market-bot.git，确保后续 push 指向新仓库 | 关联:task019

@@ -1,6 +1,6 @@
-# QQbotStock
+# qq-market-bot
 
-[![CI](https://github.com/tinyhu666/QQbotStock/actions/workflows/ci.yml/badge.svg)](https://github.com/tinyhu666/QQbotStock/actions/workflows/ci.yml)
+[![CI](https://github.com/tinyhu666/qq-market-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/tinyhu666/qq-market-bot/actions/workflows/ci.yml)
 
 一个以QQ机器人为前端、以 Node 定时任务为行情播报引擎的项目。
 
