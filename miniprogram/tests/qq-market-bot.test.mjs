@@ -58,18 +58,18 @@ test('readConfig parses onebot extra targets for group and private delivery', ()
     QQ_BOT_MODE: 'onebot',
     ONEBOT_HTTP_URL: 'http://127.0.0.1:3000',
     ONEBOT_MESSAGE_TYPE: 'group',
-    ONEBOT_TARGET_ID: 'DEMO_GROUP_ID',
-    ONEBOT_EXTRA_TARGETS: 'private:DEMO_PRIVATE_QQ,group:123456,private:DEMO_PRIVATE_QQ',
+    ONEBOT_TARGET_ID: '123456789',
+    ONEBOT_EXTRA_TARGETS: 'private:987654321,group:123456,private:987654321',
   });
 
   assert.deepEqual(config.onebotTargets, [
     {
       messageType: 'group',
-      targetId: 'DEMO_GROUP_ID',
+      targetId: '123456789',
     },
     {
       messageType: 'private',
-      targetId: 'DEMO_PRIVATE_QQ',
+      targetId: '987654321',
     },
     {
       messageType: 'group',
@@ -83,7 +83,7 @@ test('readConfig allows missing official target in dry-run/auth-check flows', ()
     {
       TWELVE_DATA_API_KEY: 'demo-key',
       QQ_BOT_MODE: 'qq-official',
-      QQ_BOT_APP_ID: 'DEMO_QQ_APP_ID',
+      QQ_BOT_APP_ID: '1234567890',
       QQ_BOT_CLIENT_SECRET: 'demo-secret',
     },
     {
@@ -92,7 +92,7 @@ test('readConfig allows missing official target in dry-run/auth-check flows', ()
   );
 
   assert.equal(config.mode, 'qq-official');
-  assert.equal(config.qqAppId, 'DEMO_QQ_APP_ID');
+  assert.equal(config.qqAppId, '1234567890');
   assert.equal(config.qqTargetType, '');
   assert.equal(config.qqTargetId, '');
 });
