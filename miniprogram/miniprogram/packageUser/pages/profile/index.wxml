@@ -1,0 +1,50 @@
+<view class="page">
+  <view class="hero">
+    <view class="avatar">{{nickname.slice(0, 1)}}</view>
+    <view class="hero-copy">
+      <text class="hero-title">{{nickname}}</text>
+      <text class="hero-subtitle">角色：{{role}} · 环境：{{envLabel}}</text>
+    </view>
+  </view>
+
+  <section-card
+    title="登录态信息"
+    description="这里展示的是模板当前维护的本地会话状态。"
+    badge="{{envLabel}}"
+  >
+    <view class="info-grid">
+      <view class="info-item">
+        <text class="info-label">Token</text>
+        <text class="info-value">{{token}}</text>
+      </view>
+      <view class="info-item">
+        <text class="info-label">过期时间</text>
+        <text class="info-value">{{expiresAt}}</text>
+      </view>
+      <view class="info-item">
+        <text class="info-label">启动时间</text>
+        <text class="info-value">{{launchTime}}</text>
+      </view>
+      <view class="info-item">
+        <text class="info-label">当前设备</text>
+        <text class="info-value">{{system}}</text>
+      </view>
+    </view>
+  </section-card>
+
+  <section-card title="开发动作" description="这两个操作足够演示登录态初始化和本地清理。">
+    <button class="action-button action-button--primary" bindtap="simulateLogin">
+      刷新演示登录态
+    </button>
+    <button class="action-button action-button--secondary" bindtap="resetLocalSession">
+      清理本地登录缓存
+    </button>
+  </section-card>
+
+  <section-card title="继续扩展" description="后续如果接真实业务，优先处理下面这些点。">
+    <view wx:for="{{tips}}" wx:key="*this" class="tip-item">
+      <text class="tip-index">{{index + 1}}</text>
+      <text class="tip-text">{{item}}</text>
+    </view>
+  </section-card>
+</view>

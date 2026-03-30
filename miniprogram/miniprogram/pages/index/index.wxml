@@ -1,0 +1,59 @@
+<view class="page">
+  <view class="hero">
+    <text class="eyebrow">WECHAT MINI PROGRAM</text>
+    <text class="title">{{title}}</text>
+    <text class="subtitle">{{subtitle}}</text>
+    <view class="hero-meta">
+      <text class="hero-pill">Env {{envBadge}}</text>
+      <text class="hero-note">Base URL: {{baseURL}}</text>
+    </view>
+  </view>
+
+  <section-card
+    title="工程状态"
+    description="你可以把这里当作项目首页面板，快速确认环境、登录态和基础结构。"
+    badge="{{envBadge}}"
+  >
+    <view class="status-grid">
+      <view wx:for="{{statusItems}}" wx:key="label" class="status-item">
+        <text class="status-label">{{item.label}}</text>
+        <text class="status-value">{{item.value}}</text>
+      </view>
+    </view>
+  </section-card>
+
+  <section-card
+    title="快捷操作"
+    description="下面这几个入口覆盖了模板里最常用的起步动作。"
+  >
+    <button class="action-button action-button--primary" bindtap="goProfileCenter">
+      打开个人中心分包
+    </button>
+    <button class="action-button action-button--secondary" bindtap="copyBaseURL">
+      复制当前 Base URL
+    </button>
+    <button class="action-button action-button--secondary" bindtap="showSessionInfo">
+      查看本地登录态
+    </button>
+  </section-card>
+
+  <section-card
+    title="模板能力"
+    description="下面这些模块已经接好，后续业务可以直接复用。"
+  >
+    <view wx:for="{{actionItems}}" wx:key="title" class="feature-item">
+      <text class="feature-title">{{item.title}}</text>
+      <text class="feature-description">{{item.description}}</text>
+    </view>
+  </section-card>
+
+  <section-card
+    title="下一步建议"
+    description="如果后面要接真实业务，这三件事通常最先落地。"
+  >
+    <view wx:for="{{checklist}}" wx:key="*this" class="todo-item">
+      <text class="todo-index">{{index + 1}}</text>
+      <text class="todo-text">{{item}}</text>
+    </view>
+  </section-card>
+</view>

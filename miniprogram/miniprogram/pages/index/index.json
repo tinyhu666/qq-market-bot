@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "项目总览",
+  "usingComponents": {
+    "section-card": "/components/section-card/index"
+  }
+}

@@ -1,0 +1,131 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding: 32rpx;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  padding: 40rpx 32rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, #1f5eff 0%, #73a1ff 100%);
+  color: #ffffff;
+  box-shadow: 0 24rpx 56rpx rgba(27, 61, 143, 0.18);
+}
+
+.eyebrow {
+  font-size: 22rpx;
+  letter-spacing: 4rpx;
+  opacity: 0.72;
+}
+
+.title {
+  font-size: 44rpx;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.subtitle {
+  font-size: 28rpx;
+  line-height: 1.6;
+  opacity: 0.92;
+}
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+}
+
+.hero-pill {
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.hero-note {
+  max-width: 100%;
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 22rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx;
+}
+
+.status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  padding: 22rpx;
+  border-radius: 20rpx;
+  background: #f7f9ff;
+}
+
+.status-label {
+  color: #6b7280;
+  font-size: 22rpx;
+}
+
+.status-value {
+  color: #172033;
+  font-size: 26rpx;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.feature-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding: 22rpx;
+  border-radius: 20rpx;
+  background: #f7f9ff;
+}
+
+.feature-title {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.feature-description {
+  color: #667085;
+  font-size: 24rpx;
+  line-height: 1.7;
+}
+
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.todo-index {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: #1f5eff;
+  color: #ffffff;
+  font-size: 24rpx;
+  line-height: 40rpx;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.todo-text {
+  flex: 1;
+  line-height: 1.7;
+  color: #24324a;
+}

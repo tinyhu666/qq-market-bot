@@ -1,0 +1,98 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding: 32rpx;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 32rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, #ffffff 0%, #eaf2ff 100%);
+  box-shadow: 0 18rpx 42rpx rgba(32, 56, 102, 0.08);
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1f5eff 0%, #73a1ff 100%);
+  color: #ffffff;
+  font-size: 40rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.hero-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.hero-title {
+  font-size: 38rpx;
+  font-weight: 700;
+}
+
+.hero-subtitle {
+  color: #5f6b7a;
+  font-size: 24rpx;
+}
+
+.info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding: 22rpx;
+  border-radius: 20rpx;
+  background: #f7f9ff;
+}
+
+.info-label {
+  color: #667085;
+  font-size: 22rpx;
+}
+
+.info-value {
+  color: #172033;
+  font-size: 26rpx;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.tip-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.tip-index {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: #1f5eff;
+  color: #ffffff;
+  font-size: 24rpx;
+  line-height: 40rpx;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tip-text {
+  flex: 1;
+  color: #24324a;
+  line-height: 1.7;
+}

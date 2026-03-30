@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "个人中心",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "section-card": "/components/section-card/index"
+  }
+}

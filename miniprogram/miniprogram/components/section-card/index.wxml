@@ -1,0 +1,12 @@
+<view class="card">
+  <view wx:if="{{title || description || badge}}" class="card-header">
+    <view class="card-copy">
+      <text wx:if="{{title}}" class="card-title">{{title}}</text>
+      <text wx:if="{{description}}" class="card-description">{{description}}</text>
+    </view>
+    <text wx:if="{{badge}}" class="card-badge">{{badge}}</text>
+  </view>
+  <view class="card-body">
+    <slot />
+  </view>
+</view>

@@ -1,0 +1,19 @@
+{
+  "pages": ["pages/index/index"],
+  "subpackages": [
+    {
+      "root": "packageUser",
+      "pages": ["pages/profile/index"]
+    }
+  ],
+  "window": {
+    "navigationBarTitleText": "小程序业务模板",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5f7fb",
+    "backgroundTextStyle": "light"
+  },
+  "lazyCodeLoading": "requiredComponents",
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

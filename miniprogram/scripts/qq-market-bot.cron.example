@@ -1,0 +1,5 @@
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+TZ=Asia/Shanghai
+
+40 9,18 * * * /absolute/path/to/miniprogram/scripts/qq-market-bot-run.sh >> /absolute/path/to/miniprogram/logs/qq-market-bot.log 2>&1
