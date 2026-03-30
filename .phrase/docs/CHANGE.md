@@ -85,3 +85,6 @@
 - change081 日期:2026-03-31 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:测试示例数据 | 说明:将测试中的真实群号、私聊 QQ 和真实 QQ 官方 appId 替换为演示值，保留相同断言结构 | 关联:task020
 - change082 日期:2026-03-31 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:把 phase 任务中的真实服务器域名、群号和私聊 QQ 替换为占位符，并新增仓库去敏任务 | 关联:task020
 - change083 日期:2026-03-31 | 文件:.phrase/phases/phase-market-bot-20260330/change_market_bot_20260330.md | 操作:Modify | 影响:阶段变更记录 | 说明:把 phase change 文档中的真实服务器域名和私聊接收者描述替换为通用表述，减少公开运维标识暴露 | 关联:task020
+- change084 日期:2026-03-31 | 文件:本地备份:/tmp/qq-market-bot-pre-history-rewrite-20260331-021948.bundle | 操作:Add | 影响:历史回滚保障 | 说明:在改写 Git 历史前创建完整 bundle 备份，便于必要时恢复重写前的全部提交链 | 关联:task021
+- change085 日期:2026-03-31 | 文件:Git历史:main | 操作:Modify | 影响:提交对象与历史内容 | 说明:对仓库全部历史提交执行字符串替换重写，清除旧的真实群号、私聊 QQ、服务器域名和旧 appId，并清理 refs/original 与 reflog | 关联:task021
+- change086 日期:2026-03-31 | 文件:GitHub仓库:tinyhu666/qq-market-bot/main | 操作:Modify | 影响:远端主分支历史 | 说明:通过 force-with-lease 推送新的提交链，让 GitHub 远端 main 与本地历史去敏结果保持一致 | 关联:task021
