@@ -75,3 +75,6 @@
 - change071 日期:2026-03-31 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充财经区会额外清洗公告腔和汇总晨报，并优先用完整标题替换低质量残句的说明 | 关联:task016
 - change072 日期:2026-03-31 | 文件:.github/workflows/ci.yml | 操作:Add | 影响:GitHub 持续集成 | 说明:新增 GitHub Actions 工作流，在 push 到 main 和 Pull Request 时进入 miniprogram 子目录执行 npm test、lint、format:check 与 typecheck | 关联:task017
 - change073 日期:2026-03-31 | 文件:README.md | 操作:Modify | 影响:仓库首页说明 | 说明:新增仓库根 README 的持续集成说明，便于在 GitHub 首页直接了解自动校验内容 | 关联:task017
+- change074 日期:2026-03-31 | 文件:README.md | 操作:Modify | 影响:GitHub 仓库首页 | 说明:在仓库根 README 顶部新增 GitHub Actions CI badge，便于在仓库首页直接查看当前自动检查状态 | 关联:task018
+- change075 日期:2026-03-31 | 文件:GitHub仓库:tinyhu666/QQbotStock | 操作:Modify | 影响:仓库元信息 | 说明:将 GitHub 仓库描述更新为 QQ 行情播报机器人与微信小程序工程说明，并验证新仓库名 QQbotStock 已生效 | 关联:task018
+- change076 日期:2026-03-31 | 文件:GitHub仓库:tinyhu666/QQbotStock/main | 操作:Modify | 影响:分支保护检查 | 说明:检查私有仓库 main 分支保护时，GitHub 返回当前账号套餐需升级到 GitHub Pro 或改为公开仓库，故未强行写入失败配置 | 关联:task018

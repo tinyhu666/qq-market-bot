@@ -1,5 +1,7 @@
 # QQbotStock
 
+[![CI](https://github.com/tinyhu666/QQbotStock/actions/workflows/ci.yml/badge.svg)](https://github.com/tinyhu666/QQbotStock/actions/workflows/ci.yml)
+
 一个以微信小程序为前端、以 Node 定时任务为行情播报引擎的项目。
 
 当前仓库主要包含三部分：
