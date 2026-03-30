@@ -2,16 +2,7 @@
 
 [![CI](https://github.com/tinyhu666/QQbotStock/actions/workflows/ci.yml/badge.svg)](https://github.com/tinyhu666/QQbotStock/actions/workflows/ci.yml)
 
-一个以微信小程序为前端、以 Node 定时任务为行情播报引擎的项目。
-
-当前仓库主要包含三部分：
-
-- `miniprogram/`
-  微信小程序工程，包含页面、组件、服务层和 TypeScript/ESLint/Prettier 配置。
-- `miniprogram/scripts/qq-market-bot.mjs`
-  QQ 机器人行情播报脚本，支持通过 OneBot 定时推送价格、AI 新闻和财经新闻。
-- `.phrase/`
-  文档驱动开发记录，包含当前阶段的 `spec`、`plan`、`task` 和 `change` 文档。
+一个以QQ机器人为前端、以 Node 定时任务为行情播报引擎的项目。
 
 ## 当前能力
 
