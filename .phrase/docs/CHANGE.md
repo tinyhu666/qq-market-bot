@@ -138,3 +138,27 @@
 - change134 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:线上验证脚本 | 说明:同步 task026 的新增测试到服务器，并用独立 Node 运行时验证 20 项测试全部通过 | 关联:task026
 - change135 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/README.md | 操作:Modify | 影响:服务器部署目录说明 | 说明:同步最新 README 到服务器目录，使线上运维文档与 AI 7+3 配比、财经 LLM 总结和跨栏目去重行为保持一致 | 关联:task026
 - change136 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot-run.sh --dry-run | 操作:Modify | 影响:线上 dry-run 验证 | 说明:使用临时新闻状态文件完成远端 dry-run，确认 Gemini 超时时会回退 DeepSeek，AI 区仍为 7+3 配比且财经区改为更精简的不重复摘要 | 关联:task026
+- change137 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 新闻候选源与解析链路 | 说明:将 AI 候选源升级为 OpenAI News、Google AI、NVIDIA、VentureBeat、量子位与 AIBase 组合，并新增 Atom/HTML 解析、源权重和半句标题过滤 | 关联:task027
+- change138 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充 AIBase 列表解析、Atom feed 解析及高权重源优先排序测试 | 关联:task027
+- change139 日期:2026-04-01 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:更新 AI 新闻源说明，明确国际/国内主候选源组合、AIBase 低权重补充和 Atom/HTML 兼容策略 | 关联:task027
+- change140 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充 AI 新闻主候选源升级目标，以及对 RSS/Atom/HTML 多入口解析的验收与风险描述 | 关联:task027
+- change141 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 AI 源升级优先级与多类 feed 结构变动风险，并记录 task027 | 关联:task027
+- change142 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task027，记录 AI 候选源切换、AIBase 低权重接入及半句标题过滤需求 | 关联:task027
+- change143 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:最终消息去重与 AI 候选过滤 | 说明:补充低优先级聚合源 clickbait 标题过滤，并在 AI/财经区块组装为最终消息前基于标题和摘要联合做一次消息级去重 | 关联:task028
+- change144 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充消息级去重与低质量聚合标题过滤测试，并把 dry-run 断言更新为重复新闻被去重后显示“今天暂无新的新闻。” | 关联:task028
+- change145 日期:2026-04-01 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充每条最终消息发送前还会执行一次消息级去重的行为说明，明确不会在同一条消息内重复同题新闻 | 关联:task028
+- change146 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:新增消息级去重目标、边界条件和验收标准，明确大模型摘要近似时仍需去重 | 关联:task028
+- change147 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充消息级去重优先级与标题+摘要联合去重风险记录，并登记 task028 | 关联:task028
+- change148 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task028，记录最终消息内不重复新闻与无新增提示的要求 | 关联:task028
+- change149 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 成品摘要过滤 | 说明:为 AI 大模型输出补充营销腔、英文残留、口语化和评论腔识别规则，并在摘要不合格时优先回退到更稳妥的原标题或其他候选条目 | 关联:task029
+- change150 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充 AI clickbait、英文残留、口语化总结回退测试，覆盖大模型输出质量过滤场景 | 关联:task029
+- change151 日期:2026-04-01 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充 AI 大模型总结如果出现营销腔、半句或 clickbait 风格，会自动回退标题或其他候选条目的说明 | 关联:task029
+- change152 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:新增 AI 成品摘要风格过滤目标与验收要求，明确英文残留和评论腔不能直接进入最终播报 | 关联:task029
+- change153 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 AI 成品摘要过滤优先级与模型风格失真风险，并登记 task029 | 关联:task029
+- change154 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task029，记录 AI 最终摘要质量继续收紧的需求与验证方式 | 关联:task029
+- change155 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 提示词与最终摘要质量 | 说明:继续收紧 AI LLM prompt，并新增主体不明确、招聘/校招、自媒体腔和八卦反转类摘要/标题过滤规则，优先回退到更稳妥的标题表达 | 关联:task030
+- change156 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充主体不明确摘要回退测试，并把招聘/校招、自媒体腔样例加入 AI 候选过滤测试 | 关联:task030
+- change157 日期:2026-04-01 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充 AI 总结会继续过滤主体不明确、招聘/校招和自媒体腔输出的说明 | 关联:task030
+- change158 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:新增 AI 硬新闻口吻、主体明确和招聘/自媒体腔过滤的验收要求 | 关联:task030
+- change159 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 AI 提示词继续收紧和 Gemini/DeepSeek 回退风格一致性的优先级与风险 | 关联:task030
+- change160 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task030，记录 AI 硬新闻口吻和招聘/主体不明确内容过滤的需求与验证方式 | 关联:task030

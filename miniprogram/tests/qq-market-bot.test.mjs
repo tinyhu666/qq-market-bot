@@ -4,11 +4,14 @@ import assert from 'node:assert/strict';
 import {
   buildReportMessages,
   classifyTechAiNewsRegion,
+  dedupeNewsSectionsForMessage,
   fetchQuote,
   formatReport,
   generateFinanceNewsWithLlm,
   generateTechAiNewsWithLlm,
   normalizeSummaryLine,
+  parseAibaseNewsItems,
+  parseTechAiSourceItems,
   readConfig,
   runMarketPush,
   selectFinanceNewsItems,
@@ -331,6 +334,43 @@ test('selectTechAiNewsItems filters noisy titles, trims multi-topic headlines, a
         source: '另一家媒体',
         publishedAt: new Date('2026-03-30T09:21:00+08:00'),
       },
+      {
+        title: '甚至在图像理解的基准测试中拿到了很高的分数',
+        summary: '甚至在图像理解的基准测试中拿到了很高的分数。',
+        source: '某聚合源',
+        sourcePriority: 4,
+        publishedAt: new Date('2026-03-30T09:22:00+08:00'),
+      },
+      {
+        title: 'AI智能体之间真正自主支付的钱包，来了！',
+        summary: '京东科技发布智能体自主支付钱包。',
+        source: '某聚合源',
+        sourcePriority: 4,
+        publishedAt: new Date('2026-03-30T09:22:00+08:00'),
+      },
+      {
+        title:
+          '实测拿215项SOTA的Qwen3.5-Omni：摄像头一开，AI现场讲论文、撸代码',
+        summary:
+          '实测拿215项SOTA的Qwen3.5-Omni：摄像头一开，AI现场讲论文、撸代码。',
+        source: '某聚合源',
+        sourcePriority: 4,
+        publishedAt: new Date('2026-03-30T09:23:00+08:00'),
+      },
+      {
+        title: 'Anthropic 源码泄露案反转，谎称被开除的程序员竟是“钓鱼”大佬',
+        summary: 'Anthropic 源码泄露案反转，谎称被开除的程序员竟是“钓鱼”大佬。',
+        source: '某聚合源',
+        sourcePriority: 4,
+        publishedAt: new Date('2026-03-30T09:24:00+08:00'),
+      },
+      {
+        title: '面向2027届应届生及实习生，计划在全球招募百位“AI种子”人才',
+        summary: '面向2027届应届生及实习生，计划在全球招募百位“AI种子”人才。',
+        source: '某媒体',
+        sourcePriority: 6,
+        publishedAt: new Date('2026-03-30T09:25:00+08:00'),
+      },
     ],
     {
       techAiNewsLimit: 3,
@@ -358,6 +398,45 @@ test('selectTechAiNewsItems filters noisy titles, trims multi-topic headlines, a
   );
 });
 
+test('dedupeNewsSectionsForMessage removes duplicate topics within and across sections', () => {
+  const sections = dedupeNewsSectionsForMessage([
+    {
+      category: 'tech-ai',
+      title: 'AI',
+      error: '',
+      items: [
+        {
+          title: 'OpenAI launches enterprise agent workspace',
+          summary: 'OpenAI 推出企业级智能体工作台。',
+        },
+        {
+          title: 'OpenAI enterprise agent workspace launches',
+          summary: 'OpenAI 发布企业级智能体工作台。',
+        },
+      ],
+    },
+    {
+      category: 'finance',
+      title: '财经',
+      error: '',
+      items: [
+        {
+          title: 'OpenAI agent workspace boosts AI infrastructure stocks',
+          summary: 'OpenAI 推出企业级智能体工作台，带动 AI 基础设施概念走强。',
+        },
+        {
+          title: 'A股成交额突破1万亿元',
+          summary: 'A股成交额突破1万亿元。',
+        },
+      ],
+    },
+  ]);
+
+  assert.equal(sections[0].items.length, 1);
+  assert.equal(sections[1].items.length, 1);
+  assert.match(sections[1].items[0].summary, /A股成交额突破1万亿元/u);
+});
+
 test('classifyTechAiNewsRegion separates international and domestic ai news', () => {
   assert.equal(
     classifyTechAiNewsRegion({
@@ -376,6 +455,96 @@ test('classifyTechAiNewsRegion separates international and domestic ai news', ()
     }),
     'domestic',
   );
+});
+
+test('parseAibaseNewsItems extracts title, summary, and relative time from listing cards', () => {
+  const items = parseAibaseNewsItems(
+    `
+      <a href="/zh/news/26758">
+        <div class="md:text-[18px] font600">Anthropic 发送 DMCA 通知，大规模下架 8100 个源码仓库</div>
+        <div class="truncate2 mt-[6px]">Anthropic就Claude代码泄露事件发起法律行动，向GitHub提交DMCA通知要求删除非法源码仓库。</div>
+        <div><i class="iconfont icon-rili"></i> 6 小时前</div>
+      </a>
+    `,
+    {
+      now: new Date('2026-04-01T18:00:00+08:00'),
+      sourcePriority: 4,
+    },
+  );
+
+  assert.equal(items.length, 1);
+  assert.equal(
+    items[0].title,
+    'Anthropic 发送 DMCA 通知，大规模下架 8100 个源码仓库',
+  );
+  assert.match(items[0].summary, /Claude代码泄露/u);
+  assert.equal(items[0].source, 'AIBase');
+  assert.equal(items[0].sourcePriority, 4);
+  assert.equal(items[0].region, 'domestic');
+  assert.equal(items[0].publishedAt?.toISOString(), '2026-04-01T04:00:00.000Z');
+});
+
+test('parseTechAiSourceItems supports Atom feeds for international AI sources', () => {
+  const items = parseTechAiSourceItems(
+    `
+      <feed xmlns="http://www.w3.org/2005/Atom">
+        <entry>
+          <title><![CDATA[Maximize AI Infrastructure Throughput by Consolidating Underutilized GPU Workloads]]></title>
+          <link rel="alternate" type="text/html" href="https://developer.nvidia.com/blog/maximize-ai-infrastructure-throughput-by-consolidating-underutilized-gpu-workloads/" />
+          <updated>2026-03-25T16:36:00Z</updated>
+          <published>2026-03-25T16:35:43Z</published>
+          <summary type="html"><![CDATA[Lightweight ASR and TTS models can share GPU capacity more efficiently in production Kubernetes environments.]]></summary>
+        </entry>
+      </feed>
+    `,
+    {
+      name: 'NVIDIA Technical Blog',
+      format: 'atom',
+      sourcePriority: 8,
+      region: 'international',
+    },
+  );
+
+  assert.equal(items.length, 1);
+  assert.match(items[0].title, /GPU Workloads/u);
+  assert.match(items[0].summary, /Kubernetes environments/u);
+  assert.equal(items[0].source, 'NVIDIA Technical Blog');
+  assert.equal(items[0].sourcePriority, 8);
+  assert.equal(items[0].region, 'international');
+  assert.equal(items[0].publishedAt?.toISOString(), '2026-03-25T16:35:43.000Z');
+});
+
+test('selectTechAiNewsItems prefers higher-priority sources when relevance is similar', () => {
+  const items = selectTechAiNewsItems(
+    [
+      {
+        title: 'AIBase 汇总：OpenAI 推出企业级智能体工作台',
+        summary: 'OpenAI 推出企业级智能体工作台，强调企业流程编排。',
+        source: 'AIBase',
+        sourcePriority: 4,
+        region: 'domestic',
+        publishedAt: new Date('2026-04-01T17:55:00+08:00'),
+      },
+      {
+        title: 'OpenAI launches enterprise agent workspace',
+        summary:
+          'OpenAI launches enterprise agent workspace for secure workflow orchestration.',
+        source: 'OpenAI News',
+        sourcePriority: 10,
+        region: 'international',
+        publishedAt: new Date('2026-04-01T17:30:00+08:00'),
+      },
+    ],
+    {
+      techAiNewsLimit: 1,
+      newsSummaryMaxLength: 48,
+    },
+    new Date('2026-04-01T18:00:00+08:00'),
+  );
+
+  assert.equal(items.length, 1);
+  assert.equal(items[0].source, 'OpenAI News');
+  assert.equal(items[0].region, 'international');
 });
 
 test('selectFinanceNewsItems filters calendar noise, clickbait, and duplicate headlines', () => {
@@ -861,6 +1030,296 @@ test('generateTechAiNewsWithLlm falls back to DeepSeek when Gemini fails', async
   }
 });
 
+test('generateTechAiNewsWithLlm skips clickbait candidates and falls back from low-quality summaries', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    internationalItems: [
+                      {
+                        candidateId: 'c01',
+                        summary: 'ToB AI最贵重的门票。',
+                      },
+                      {
+                        candidateId: 'c02',
+                        summary:
+                          '强调在AI向智能体进化过程中，安全与责任至关重要。',
+                      },
+                      {
+                        candidateId: 'c03',
+                        summary: 'Accelerating the next phase of AI.',
+                      },
+                      {
+                        candidateId: 'c04',
+                        summary: 'AI智能体之间真正自主支付的钱包，来了！',
+                      },
+                    ],
+                    domesticItems: [],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const items = await generateTechAiNewsWithLlm(
+      [
+        {
+          candidateId: 'c01',
+          region: 'international',
+          item: {
+            title: 'ToB AI最贵重的门票',
+            summary: 'ToB AI最贵重的门票。',
+            source: '某聚合源',
+            sourcePriority: 4,
+            publishedAt: new Date('2026-04-01T10:00:00+08:00'),
+          },
+        },
+        {
+          candidateId: 'c02',
+          region: 'international',
+          item: {
+            title: 'Anthropic 发布 AI 智能体安全白皮书',
+            summary: 'Anthropic 发布 AI 智能体安全白皮书。',
+            source: 'Anthropic News',
+            sourcePriority: 10,
+            publishedAt: new Date('2026-04-01T10:10:00+08:00'),
+          },
+        },
+        {
+          candidateId: 'c03',
+          region: 'international',
+          item: {
+            title: 'Accelerating the next phase of AI',
+            summary: 'Accelerating the next phase of AI.',
+            source: 'OpenAI News',
+            sourcePriority: 10,
+            publishedAt: new Date('2026-04-01T10:15:00+08:00'),
+          },
+        },
+        {
+          candidateId: 'c04',
+          region: 'international',
+          item: {
+            title: '京东科技发布 AI 智能体自主支付钱包',
+            summary: '京东科技发布 AI 智能体自主支付钱包。',
+            source: '某媒体',
+            sourcePriority: 8,
+            publishedAt: new Date('2026-04-01T10:18:00+08:00'),
+          },
+        },
+        {
+          candidateId: 'c05',
+          region: 'international',
+          item: {
+            title: 'OpenAI 发布企业级智能体工作台',
+            summary: 'OpenAI 发布企业级智能体工作台。',
+            source: 'OpenAI News',
+            sourcePriority: 10,
+            publishedAt: new Date('2026-04-01T10:20:00+08:00'),
+          },
+        },
+      ],
+      {
+        techAiNewsLimit: 3,
+        newsSummaryMaxLength: 48,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-chat',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(items.length, 3);
+    assert.equal(
+      items.some((item) => /最贵重的门票/u.test(item.summary)),
+      false,
+    );
+    assert.equal(
+      items.some((item) => /最贵重的门票/u.test(item.title)),
+      false,
+    );
+    assert.equal(
+      items.some((item) =>
+        /Accelerating the next phase of AI/u.test(item.summary),
+      ),
+      false,
+    );
+    assert.equal(
+      items.some((item) =>
+        /Accelerating the next phase of AI/u.test(item.title),
+      ),
+      false,
+    );
+    assert.equal(
+      items.some((item) =>
+        /AI智能体之间真正自主支付的钱包，来了/u.test(item.summary),
+      ),
+      false,
+    );
+    assert.equal(
+      items.some((item) =>
+        /Anthropic 发布 AI 智能体安全白皮书/u.test(item.summary),
+      ),
+      true,
+    );
+    assert.equal(
+      items.some((item) =>
+        /京东科技发布 AI 智能体自主支付钱包/u.test(item.summary),
+      ),
+      true,
+    );
+    assert.equal(
+      items.some((item) => /OpenAI 发布企业级智能体工作台/u.test(item.summary)),
+      true,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateTechAiNewsWithLlm falls back to clean titles when llm summary is colloquial', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    internationalItems: [
+                      {
+                        candidateId: 'c01',
+                        summary: '能看能听能唠嗑，还能现场vibe coding。',
+                      },
+                    ],
+                    domesticItems: [],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const items = await generateTechAiNewsWithLlm(
+      [
+        {
+          candidateId: 'c01',
+          region: 'international',
+          item: {
+            title: '阿里云发布多模态模型升级',
+            summary: '阿里云发布多模态模型升级。',
+            source: '某媒体',
+            sourcePriority: 8,
+            publishedAt: new Date('2026-04-01T10:25:00+08:00'),
+          },
+        },
+      ],
+      {
+        techAiNewsLimit: 1,
+        newsSummaryMaxLength: 48,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-chat',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(items.length, 1);
+    assert.equal(/唠嗑|vibe coding/iu.test(items[0].summary), false);
+    assert.match(items[0].summary, /阿里云发布多模态模型升级/u);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateTechAiNewsWithLlm falls back when llm summary lacks a clear subject', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    internationalItems: [
+                      {
+                        candidateId: 'c01',
+                        summary:
+                          '旨在通过“一个通用大脑适配多种形态机器人”打破异构硬件壁垒。',
+                      },
+                    ],
+                    domesticItems: [],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const items = await generateTechAiNewsWithLlm(
+      [
+        {
+          candidateId: 'c01',
+          region: 'international',
+          item: {
+            title: '某机器人公司发布通用大脑平台',
+            summary: '某机器人公司发布通用大脑平台。',
+            source: '某媒体',
+            sourcePriority: 8,
+            publishedAt: new Date('2026-04-01T10:30:00+08:00'),
+          },
+        },
+      ],
+      {
+        techAiNewsLimit: 1,
+        newsSummaryMaxLength: 48,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-chat',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(items.length, 1);
+    assert.equal(/^旨在/u.test(items[0].summary), false);
+    assert.match(items[0].summary, /某机器人公司发布通用大脑平台/u);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('generateFinanceNewsWithLlm rewrites finance candidates into concise market summaries', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
@@ -1087,5 +1546,6 @@ test('runMarketPush supports dry-run mode', async () => {
   assert.match(result.message, /美元（USDX）：100\.24（\+0\.07%）/);
   assert.match(result.message, /上证（SH）：3,230\.18（\+0\.24%）/);
   assert.match(result.message, /【AI Top 1】/);
-  assert.match(result.message, /【财经 Top 1】/);
+  assert.match(result.message, /【财经 Top 0】/);
+  assert.match(result.message, /今天暂无新的新闻。/u);
 });

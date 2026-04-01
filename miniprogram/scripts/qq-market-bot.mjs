@@ -22,6 +22,18 @@ const CNBC_QUOTE_PAGE_URL = 'https://www.cnbc.com/quotes/';
 const STOOQ_QUOTE_URL = 'https://stooq.com/q/l/';
 const YICAI_INFO_URL = 'https://www.yicai.com/news/info/';
 const THIRTY_SIX_KR_NEWSFLASH_FEED_URL = 'https://36kr.com/feed-newsflash';
+const OPENAI_NEWS_RSS_URL = 'https://openai.com/news/rss.xml';
+const GOOGLE_AI_RSS_URL =
+  'https://blog.google/innovation-and-ai/technology/ai/rss/';
+const TECHCRUNCH_AI_RSS_URL =
+  'https://techcrunch.com/tag/artificial-intelligence/feed/';
+const VENTUREBEAT_AI_RSS_URL = 'https://venturebeat.com/category/ai/feed/';
+const NVIDIA_BLOG_GENAI_RSS_URL =
+  'https://blogs.nvidia.com/blog/category/generative-ai/feed/';
+const NVIDIA_DEVELOPER_GENAI_ATOM_URL =
+  'https://developer.nvidia.com/blog/category/generative-ai/feed/';
+const QBITAI_RSS_URL = 'https://www.qbitai.com/feed';
+const AIBASE_NEWS_URL = 'https://news.aibase.com/zh/news';
 const EASTMONEY_FAST_NEWS_URL =
   'https://np-weblist.eastmoney.com/comm/web/getFastNewsList';
 const EASTMONEY_MIAOXIANG_NEWS_URL =
@@ -64,22 +76,62 @@ const NEWS_CATEGORY_CONFIG = {
   },
 };
 
-const TECH_AI_NEWS_FEEDS = [
+const TECH_AI_NEWS_SOURCES = [
   {
-    name: 'IT之家',
-    url: 'https://www.ithome.com/rss/',
+    name: 'OpenAI News',
+    url: OPENAI_NEWS_RSS_URL,
+    format: 'rss',
+    sourcePriority: 10,
+    region: 'international',
   },
   {
-    name: '雷峰网',
-    url: 'https://www.leiphone.com/feed',
+    name: 'Google AI',
+    url: GOOGLE_AI_RSS_URL,
+    format: 'rss',
+    sourcePriority: 9,
+    region: 'international',
   },
   {
-    name: '蓝点网',
-    url: 'https://www.landiannews.com/feed',
+    name: 'NVIDIA Blog',
+    url: NVIDIA_BLOG_GENAI_RSS_URL,
+    format: 'rss',
+    sourcePriority: 8,
+    region: 'international',
   },
   {
-    name: '36氪',
-    url: 'https://36kr.com/feed-article',
+    name: 'NVIDIA Technical Blog',
+    url: NVIDIA_DEVELOPER_GENAI_ATOM_URL,
+    format: 'atom',
+    sourcePriority: 8,
+    region: 'international',
+  },
+  {
+    name: 'VentureBeat AI',
+    url: VENTUREBEAT_AI_RSS_URL,
+    format: 'rss',
+    sourcePriority: 7,
+    region: 'international',
+  },
+  {
+    name: 'TechCrunch AI',
+    url: TECHCRUNCH_AI_RSS_URL,
+    format: 'rss',
+    sourcePriority: 5,
+    region: 'international',
+  },
+  {
+    name: '量子位',
+    url: QBITAI_RSS_URL,
+    format: 'rss',
+    sourcePriority: 7,
+    region: 'domestic',
+  },
+  {
+    name: 'AIBase',
+    url: AIBASE_NEWS_URL,
+    format: 'aibase-html',
+    sourcePriority: 4,
+    region: 'domestic',
   },
 ];
 
@@ -167,6 +219,12 @@ const TECH_AI_NEWS_FILTER_CONFIG = {
     '折叠屏',
     '企业全情报',
     '纸扎',
+    '应届生',
+    '实习生',
+    '校招',
+    '招聘',
+    '招募',
+    'ai种子',
   ],
 };
 
@@ -238,6 +296,8 @@ const TECH_AI_NEWS_REGION_CONFIG = {
     'oracle',
     'ibm',
     'adobe',
+    'venturebeat',
+    'techcrunch',
     'midjourney',
     'openrouter',
     'y combinator',
@@ -958,6 +1018,47 @@ export function filterDailyDuplicateNews(
   });
 }
 
+export function dedupeNewsSectionsForMessage(newsSections) {
+  const seenFingerprints = [];
+
+  return newsSections.map((section) => {
+    const uniqueItems = [];
+
+    for (const item of section.items || []) {
+      const itemFingerprints = [
+        buildNewsFingerprint(item, section.category),
+        buildSummaryFingerprint(item, section.category),
+        normalizeNewsDuplicateText(
+          normalizeWhitespace(item.title || item.summary || ''),
+        ),
+        normalizeNewsDuplicateText(
+          normalizeWhitespace(item.summary || item.title || ''),
+        ),
+      ].filter(Boolean);
+
+      if (
+        itemFingerprints.some((fingerprint) =>
+          shouldSkipNewsByFingerprint(fingerprint, seenFingerprints),
+        )
+      ) {
+        continue;
+      }
+
+      uniqueItems.push(item);
+      seenFingerprints.push(...itemFingerprints);
+    }
+
+    return {
+      ...section,
+      items: uniqueItems,
+      emptyText:
+        section.items?.length > 0 && uniqueItems.length === 0
+          ? '今天暂无新的新闻。'
+          : section.emptyText || '',
+    };
+  });
+}
+
 export function mergeDailyNewsState(
   state,
   newsSections,
@@ -1360,6 +1461,85 @@ function isLowQualitySummaryLine(text) {
   return hanLength < 6;
 }
 
+function isLowQualityTechAiSummaryLine(text) {
+  if (isLowQualitySummaryLine(text)) {
+    return true;
+  }
+
+  if (/[!！]/u.test(text)) {
+    return true;
+  }
+
+  if (
+    /(?:最贵重的门票|沉浸式观感|一图看懂|保姆级|手把手|避坑|神器|封神|爆款攻略)/u.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+
+  if (/^解锁.*(?:观感|体验|玩法)/u.test(text)) {
+    return true;
+  }
+
+  if (/^强调/u.test(text)) {
+    return true;
+  }
+
+  if (
+    /(?:走了，.+来了|暴增\d+%|靠[「“"][^」”]{1,12}[」”]|都能搞|真正自主支付的钱包)/u.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    /(?:唠嗑|vibe coding|这场闹剧|之所以能产生广泛影响|双重挑战)/iu.test(text)
+  ) {
+    return true;
+  }
+
+  if (/^(?:旨在|面向)/u.test(text)) {
+    return true;
+  }
+
+  if (/从[“"][^”"]+[”"]迈向[“"][^”"]+[”"]/u.test(text)) {
+    return true;
+  }
+
+  if (
+    /(?:反封号|封号工具|意外揭示|很能说|很能干|主打|校招|应届生|实习生|ai种子)/iu.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    /(?:实测拿\d+项sota|撸代码|源码泄露案反转|竟是[“"]?钓鱼|大佬)/iu.test(text)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function isLowQualityTechAiOutputItem(item) {
+  const title = normalizeTechAiNewsTitle(item.title || item.summary || '');
+  const summary = normalizeWhitespace(item.summary || item.title || '');
+
+  return (
+    isExcludedTechAiNewsItem({
+      ...item,
+      title,
+      summary,
+    }) ||
+    (isLowQualityTechAiSummaryLine(summary) &&
+      isLowQualityTechAiSummaryLine(title))
+  );
+}
+
 function stripFinanceNoise(text) {
   return normalizeWhitespace(
     stripHtml(text)
@@ -1496,50 +1676,110 @@ function extractXmlTagValue(xml, tagName) {
     .trim();
 }
 
-function parseRssItems(xml) {
+function extractXmlTagAttribute(xml, tagName, attributeName) {
+  const pattern = new RegExp(
+    `<${tagName}(?:\\s[^>]*)?\\s${attributeName}=(?:"([^"]*)"|'([^']*)')[^>]*>`,
+    'i',
+  );
+  const match = xml.match(pattern);
+  if (!match) {
+    return '';
+  }
+
+  return decodeHtmlEntities((match[1] || match[2] || '').trim());
+}
+
+function parseXmlEntries(xml, entryTagName) {
   const items = [];
-  const pattern = /<item>([\s\S]*?)<\/item>/gi;
+  const pattern = new RegExp(
+    `<${entryTagName}\\b[\\s\\S]*?</${entryTagName}>`,
+    'gi',
+  );
   let match = pattern.exec(xml);
 
   while (match) {
-    items.push(match[1]);
+    items.push(match[0]);
     match = pattern.exec(xml);
   }
 
   return items;
 }
 
-function parseRssFeedItems(xml, sourceName = '') {
-  return parseRssItems(xml)
+function normalizeFeedSummary(summarySource, fallbackTitle) {
+  const normalizedSummary = normalizeWhitespace(
+    decodeHtmlEntities(stripHtml(summarySource || '')),
+  );
+
+  return normalizedSummary || fallbackTitle;
+}
+
+function stripTechAiSummaryNoise(text) {
+  return normalizeWhitespace(
+    stripHtml(text || '')
+      .replace(/^AI 从[“"][^”"]+[”"]迈向[“"][^”"]+[”"]，[，\s]*/u, '')
+      .replace(/^具身智能新突破[:：]\s*/u, '')
+      .replace(/^重磅[:：]\s*/u, '')
+      .replace(/^最新[:：]\s*/u, ''),
+  );
+}
+
+function buildFeedItemMetadata(item, sourceName, sourcePriority, region) {
+  return {
+    source:
+      sourceName ||
+      decodeHtmlEntities(stripHtml(extractXmlTagValue(item, 'source'))),
+    sourcePriority,
+    region: region || '',
+  };
+}
+
+function parseRssFeedItems(
+  xml,
+  sourceName = '',
+  sourcePriority = 0,
+  region = '',
+) {
+  return parseXmlEntries(xml, 'item')
     .map((itemXml) => {
       const title = decodeHtmlEntities(
         stripHtml(extractXmlTagValue(itemXml, 'title')),
       );
-      const source =
-        sourceName ||
-        decodeHtmlEntities(stripHtml(extractXmlTagValue(itemXml, 'source')));
+      const metadata = buildFeedItemMetadata(
+        itemXml,
+        sourceName,
+        sourcePriority,
+        region,
+      );
       const publishedAtText =
         extractXmlTagValue(itemXml, 'pubDate') ||
         extractXmlTagValue(itemXml, 'dc:date');
       const publishedAt = publishedAtText ? new Date(publishedAtText) : null;
       const cleanedTitle = normalizeTechAiNewsTitle(
-        source && title.endsWith(` - ${source}`)
-          ? title.slice(0, -` - ${source}`.length)
+        metadata.source && title.endsWith(` - ${metadata.source}`)
+          ? title.slice(0, -`${metadata.source}`.length - 3)
           : title,
+      );
+      const summary = normalizeFeedSummary(
+        extractXmlTagValue(itemXml, 'description') ||
+          extractXmlTagValue(itemXml, 'content:encoded'),
+        cleanedTitle,
       );
 
       return {
         title: cleanedTitle,
-        summary: cleanedTitle,
-        source,
+        summary,
+        source: metadata.source,
         publishedAt,
+        llmSummary: summary,
+        sourcePriority: metadata.sourcePriority,
+        region: metadata.region,
       };
     })
     .filter((item) => item.title);
 }
 
 function parseGenericRssHeadlineItems(xml, sourceName = '') {
-  return parseRssItems(xml)
+  return parseXmlEntries(xml, 'item')
     .map((itemXml) => {
       const title = collapseRepeatedHeadline(
         normalizeWhitespace(stripHtml(extractXmlTagValue(itemXml, 'title'))),
@@ -1561,21 +1801,183 @@ function parseGenericRssHeadlineItems(xml, sourceName = '') {
     .filter((item) => item.title);
 }
 
+function parseAtomFeedItems(
+  xml,
+  sourceName = '',
+  sourcePriority = 0,
+  region = '',
+) {
+  return parseXmlEntries(xml, 'entry')
+    .map((entryXml) => {
+      const title = normalizeTechAiNewsTitle(
+        decodeHtmlEntities(stripHtml(extractXmlTagValue(entryXml, 'title'))),
+      );
+      const summary = normalizeFeedSummary(
+        extractXmlTagValue(entryXml, 'summary') ||
+          extractXmlTagValue(entryXml, 'content'),
+        title,
+      );
+      const publishedAtText =
+        extractXmlTagValue(entryXml, 'published') ||
+        extractXmlTagValue(entryXml, 'updated');
+
+      return {
+        title,
+        summary,
+        source: sourceName,
+        publishedAt: publishedAtText ? new Date(publishedAtText) : null,
+        link: extractXmlTagAttribute(entryXml, 'link', 'href'),
+        llmSummary: summary,
+        sourcePriority,
+        region: region || '',
+      };
+    })
+    .filter((item) => item.title);
+}
+
+function parseAibaseRelativePublishedAt(text, now = new Date()) {
+  const normalized = normalizeWhitespace(text);
+  if (!normalized) {
+    return null;
+  }
+
+  if (/^(?:刚刚|刚才)$/u.test(normalized)) {
+    return new Date(now.valueOf());
+  }
+
+  const minuteMatch = normalized.match(/(\d+)\s*分(?:钟)?前/u);
+  if (minuteMatch) {
+    return new Date(now.valueOf() - Number(minuteMatch[1]) * 60 * 1000);
+  }
+
+  const hourMatch = normalized.match(/(\d+)\s*小时前/u);
+  if (hourMatch) {
+    return new Date(now.valueOf() - Number(hourMatch[1]) * 60 * 60 * 1000);
+  }
+
+  const dayMatch = normalized.match(/(\d+)\s*天前/u);
+  if (dayMatch) {
+    return new Date(now.valueOf() - Number(dayMatch[1]) * 24 * 60 * 60 * 1000);
+  }
+
+  const absoluteMatch = normalized.match(
+    /(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})(?:日|号)?(?:\s+(\d{1,2}):(\d{2}))?/u,
+  );
+  if (!absoluteMatch) {
+    return null;
+  }
+
+  const [, year, month, day, hour = '0', minute = '0'] = absoluteMatch;
+  return new Date(
+    `${year}-${month.padStart(2, '0')}-${day.padStart(
+      2,
+      '0',
+    )}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00+08:00`,
+  );
+}
+
+export function parseAibaseNewsItems(
+  html,
+  {
+    sourceName = 'AIBase',
+    sourcePriority = 0,
+    region = 'domestic',
+    now = new Date(),
+  } = {},
+) {
+  const items = [];
+  const pattern = /<a href="(\/zh\/news\/\d+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  let match = pattern.exec(html);
+
+  while (match) {
+    const cardHtml = match[2] || '';
+    const titleMatch = cardHtml.match(
+      /<div class="[^"]*font600[^"]*">([\s\S]*?)<\/div>/i,
+    );
+    const summaryMatch = cardHtml.match(
+      /<div class="[^"]*truncate2[^"]*mt-\[6px\][^"]*">([\s\S]*?)<\/div>/i,
+    );
+    const publishedAtMatch = cardHtml.match(
+      /icon-rili[^>]*><\/i>\s*([^<]+)\s*<\/div>/i,
+    );
+
+    const title = normalizeTechAiNewsTitle(
+      decodeHtmlEntities(stripHtml(titleMatch?.[1] || '')),
+    );
+    const summary = normalizeFeedSummary(summaryMatch?.[1] || '', title);
+
+    if (title) {
+      items.push({
+        title,
+        summary,
+        source: sourceName,
+        publishedAt: parseAibaseRelativePublishedAt(
+          publishedAtMatch?.[1] || '',
+          now,
+        ),
+        link: `https://news.aibase.com${match[1]}`,
+        llmSummary: summary,
+        sourcePriority,
+        region,
+      });
+    }
+
+    match = pattern.exec(html);
+  }
+
+  return items;
+}
+
+export function parseTechAiSourceItems(payload, source, now = new Date()) {
+  switch (source.format) {
+    case 'atom':
+      return parseAtomFeedItems(
+        payload,
+        source.name,
+        source.sourcePriority,
+        source.region,
+      );
+    case 'aibase-html':
+      return parseAibaseNewsItems(payload, {
+        sourceName: source.name,
+        sourcePriority: source.sourcePriority,
+        region: source.region,
+        now,
+      });
+    case 'rss':
+    default:
+      return parseRssFeedItems(
+        payload,
+        source.name,
+        source.sourcePriority,
+        source.region,
+      );
+  }
+}
+
 function buildTechAiNewsItem(item, maxLength) {
   const cleanedTitle = normalizeTechAiNewsTitle(
     item.title || item.summary || '',
   );
-  const summary = normalizeSummaryLine(item.summary || item.title, maxLength);
+  const summary = normalizeSummaryLine(
+    stripTechAiSummaryNoise(item.summary || item.title),
+    maxLength,
+  );
   const fallbackSummary = normalizeSummaryLine(cleanedTitle, maxLength);
 
   return {
     title: cleanedTitle || item.title,
     summary:
-      summary && !isLowQualitySummaryLine(summary) ? summary : fallbackSummary,
+      summary && !isLowQualityTechAiSummaryLine(summary)
+        ? summary
+        : fallbackSummary,
     source: item.source || '',
     publishedAt: item.publishedAt,
     fingerprint: item.fingerprint || '',
     region: item.region || classifyTechAiNewsRegion(item),
+    llmSummary:
+      item.llmSummary || normalizeFeedSummary(item.summary || '', cleanedTitle),
+    sourcePriority: item.sourcePriority || 0,
   };
 }
 
@@ -1624,7 +2026,50 @@ function countMatchedKeywords(text, keywords = []) {
 }
 
 function isExcludedTechAiNewsItem(item) {
-  const haystack = `${item.title} ${item.source || ''}`.toLowerCase();
+  const title = normalizeWhitespace(item.title || '');
+  const haystack = `${title} ${item.source || ''}`.toLowerCase();
+
+  if (
+    /^(?:甚至|毕竟|另外|同时|目前|对此|其中|而且|但是|“面对|到20\d{2}年底)/u.test(
+      title,
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    /(?:最贵重的门票|沉浸式观感|一图看懂|保姆级|手把手|爆款攻略)/u.test(title)
+  ) {
+    return true;
+  }
+
+  if (/《[^》]+》|短片|监制|联合发起|双榜|镜像/u.test(title)) {
+    return true;
+  }
+
+  if (/来了[！!？?]?$/u.test(title)) {
+    return true;
+  }
+
+  if (
+    /(?:实测拿\d+项sota|撸代码|源码泄露案反转|竟是[“"]?钓鱼|大佬)/iu.test(title)
+  ) {
+    return true;
+  }
+
+  if (/(?:校招|应届生|实习生|ai种子|招聘|招募|种子计划)/iu.test(title)) {
+    return true;
+  }
+
+  if (
+    (item.sourcePriority || 0) <= 7 &&
+    /(?:终于|来了[！!？?]?$|最贵重的门票|接近[“"]?不可用[”"]?|一句[「“"]|避坑|惊现|豪赌|神坛|火爆|打响)/u.test(
+      title,
+    )
+  ) {
+    return true;
+  }
+
   return (TECH_AI_NEWS_FILTER_CONFIG.excludeKeywords || []).some((keyword) =>
     includesKeyword(haystack, keyword),
   );
@@ -1661,7 +2106,12 @@ function scoreTechAiNewsItem(item) {
     TECH_AI_NEWS_FILTER_CONFIG.entityKeywords,
   );
 
-  return coreKeywordHits * 4 + infraKeywordHits * 2 + entityKeywordHits;
+  return (
+    coreKeywordHits * 4 +
+    infraKeywordHits * 2 +
+    entityKeywordHits +
+    (item.sourcePriority || 0) * 3
+  );
 }
 
 export function selectTechAiNewsItems(
@@ -1816,7 +2266,22 @@ function formatNewsLlmCandidateLine(candidateId, item) {
     item.source || '未知来源',
     publishedAt || '未知时间',
     item.title || item.summary || '',
-    item.summary || item.title || '',
+    item.llmSummary || item.summary || item.title || '',
+  ].join(' | ');
+}
+
+function formatAiNewsLlmCandidateLine(candidateId, item) {
+  const publishedAt =
+    item.publishedAt instanceof Date &&
+    !Number.isNaN(item.publishedAt.valueOf())
+      ? item.publishedAt.toISOString()
+      : '';
+
+  return [
+    `${candidateId}`,
+    item.source || '未知来源',
+    publishedAt || '未知时间',
+    item.title || item.summary || '',
   ].join(' | ');
 }
 
@@ -1832,12 +2297,12 @@ function buildAiNewsLlmPrompt(candidates, config) {
   const internationalCandidates = candidates
     .filter((candidate) => candidate.region !== 'domestic')
     .map((candidate) =>
-      formatNewsLlmCandidateLine(candidate.candidateId, candidate.item),
+      formatAiNewsLlmCandidateLine(candidate.candidateId, candidate.item),
     );
   const domesticCandidates = candidates
     .filter((candidate) => candidate.region === 'domestic')
     .map((candidate) =>
-      formatNewsLlmCandidateLine(candidate.candidateId, candidate.item),
+      formatAiNewsLlmCandidateLine(candidate.candidateId, candidate.item),
     );
 
   return [
@@ -1846,7 +2311,14 @@ function buildAiNewsLlmPrompt(candidates, config) {
     '只允许根据候选列表挑选，不能编造新事实，不能引入列表外事件。',
     '优先选择与大模型、智能体、推理、芯片、算力、AI 基础设施、重要产品发布、企业 AI 战略、重大融资并购、监管和平台能力变化相关的内容。',
     '排除纯活动预告、泛营销、弱相关消费电子、校园/政务/直播类噪音内容。',
+    '如果候选更像招聘、校招、实习生、种子计划、教程、测评、八卦、反转或社区口水仗，请不要选择。',
+    '输出必须是硬新闻快讯口吻，每句都要有明确主体（公司、机构、模型、产品或平台），不要写成评论、宣传、测评感受或行业感想。',
     '请为每条输出一句中文总结，要求：完整、客观、18-36 个汉字优先、不带链接/来源/序号/引号。',
+    '如果候选标题或摘要是英文，输出时必须改写成自然中文。',
+    '主要根据候选标题判断事件，如果标题已经完整，不要被媒体改写摘要带偏。',
+    '禁止直接照抄候选原文长句，禁止输出半句，禁止以“甚至/毕竟/另外/同时/目前/对此/旨在/面向”等承接词开头。',
+    '禁止使用惊叹号、口语化表达、招聘话术、营销词、夸张修辞，以及“很能说/很能干/主打/意外揭示/反转”等评论或宣传腔。',
+    '如果某条候选无法写成主体明确的硬新闻短句，就不要返回该候选。',
     '必须严格输出 JSON，对象格式为 {"internationalItems":[{"candidateId":"c01","summary":"..."}],"domesticItems":[{"candidateId":"c08","summary":"..."}]}。',
     '国际候选：',
     ...(internationalCandidates.length > 0 ? internationalCandidates : ['无']),
@@ -2009,6 +2481,9 @@ function normalizeAiNewsLlmItems(payload, candidates, config) {
         'tech-ai',
         buildTechAiNewsItem,
       );
+      if (isLowQualityTechAiOutputItem(normalizedEntry.item)) {
+        continue;
+      }
       const normalizedFingerprint = buildNewsFingerprint(
         normalizedEntry.item,
         'tech-ai',
@@ -2064,6 +2539,9 @@ function normalizeAiNewsLlmItems(payload, candidates, config) {
         },
         config.newsSummaryMaxLength,
       );
+      if (isLowQualityTechAiOutputItem(fallbackItem)) {
+        continue;
+      }
       const fallbackSummaryFingerprint = buildSummaryFingerprint(
         fallbackItem,
         'tech-ai',
@@ -2120,6 +2598,9 @@ function normalizeAiNewsLlmItems(payload, candidates, config) {
         },
         config.newsSummaryMaxLength,
       );
+      if (isLowQualityTechAiOutputItem(fallbackItem)) {
+        continue;
+      }
       const fallbackSummaryFingerprint = buildSummaryFingerprint(
         fallbackItem,
         'tech-ai',
@@ -2538,15 +3019,11 @@ async function fetchTechAiNewsCategory(config) {
   const category = 'tech-ai';
   const candidateLimit =
     config.techAiNewsLimit * DEFAULT_DAILY_NEWS_FETCH_MULTIPLIER;
+  const now = new Date();
   const feedResults = await Promise.allSettled(
-    TECH_AI_NEWS_FEEDS.map(async (feed) => {
-      try {
-        const xml = await fetchText(feed.url);
-        return parseRssFeedItems(xml, feed.name);
-      } catch {
-        const xml = await fetchTextWithCurl(feed.url);
-        return parseRssFeedItems(xml, feed.name);
-      }
+    TECH_AI_NEWS_SOURCES.map(async (source) => {
+      const payload = await fetchTextWithFallbacks(source.url);
+      return parseTechAiSourceItems(payload, source, now);
     }),
   );
 
@@ -2555,7 +3032,7 @@ async function fetchTechAiNewsCategory(config) {
       .filter((result) => result.status === 'fulfilled')
       .flatMap((result) => result.value),
     config,
-    new Date(),
+    now,
     candidateLimit,
   );
   const unseenCandidateResult =
@@ -3517,8 +3994,9 @@ export function buildReportMessages(
   maxLength = DEFAULT_MESSAGE_MAX_LENGTH,
 ) {
   const sections = [formatPriceSection(quotes, generatedAt, timeZone)];
+  const dedupedNewsSections = dedupeNewsSectionsForMessage(newsSections);
 
-  for (const section of newsSections) {
+  for (const section of dedupedNewsSections) {
     sections.push(...splitNewsSection(section, maxLength));
   }
 
@@ -3836,9 +4314,10 @@ export async function runMarketPush({
         generatedAt,
       )
     : rawNewsSections;
+  const finalNewsSections = dedupeNewsSectionsForMessage(newsSections);
   const messages = buildReportMessages(
     quotes,
-    newsSections,
+    finalNewsSections,
     generatedAt,
     config.timeZone,
     config.messageMaxLength,
@@ -3853,7 +4332,7 @@ export async function runMarketPush({
   ) {
     const nextNewsState = mergeDailyNewsState(
       currentNewsState,
-      newsSections,
+      finalNewsSections,
       runtimeConfig,
       generatedAt,
     );
@@ -3864,7 +4343,7 @@ export async function runMarketPush({
     config: runtimeConfig,
     generatedAt,
     quotes,
-    newsSections,
+    newsSections: finalNewsSections,
     messages,
     message,
     result,
