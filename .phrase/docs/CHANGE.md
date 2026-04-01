@@ -88,3 +88,10 @@
 - change084 日期:2026-03-31 | 文件:本地备份:/tmp/qq-market-bot-pre-history-rewrite-20260331-021948.bundle | 操作:Add | 影响:历史回滚保障 | 说明:在改写 Git 历史前创建完整 bundle 备份，便于必要时恢复重写前的全部提交链 | 关联:task021
 - change085 日期:2026-03-31 | 文件:Git历史:main | 操作:Modify | 影响:提交对象与历史内容 | 说明:对仓库全部历史提交执行字符串替换重写，清除旧的真实群号、私聊 QQ、服务器域名和旧 appId，并清理 refs/original 与 reflog | 关联:task021
 - change086 日期:2026-03-31 | 文件:GitHub仓库:tinyhu666/qq-market-bot/main | 操作:Modify | 影响:远端主分支历史 | 说明:通过 force-with-lease 推送新的提交链，让 GitHub 远端 main 与本地历史去敏结果保持一致 | 关联:task021
+- change087 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:三段定时价格播报与新闻源链路 | 说明:将价格区扩展到 XAU/XAG/WTI/ETH/NDX/SPX/USDX/SH，补充新浪全球指数解析，并把财经新闻主源切到第一财经资讯页与 36氪快讯，同时为 AI 新闻新增 36氪 文章源、近似去重和多标题清洗 | 关联:task022
+- change088 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充 NDX/SPX、AI 近似去重、多标题清洗以及财经标题型源去重与 clickbait 过滤测试 | 关联:task022
+- change089 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.cron.example | 操作:Modify | 影响:定时执行模板 | 说明:将 cron 示例更新为每天 09:25、13:25、18:25 执行 | 关联:task022
+- change090 日期:2026-04-01 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:同步更新三段定时时间、八个价格品种、新的 AI/财经新闻源和最新输出结构说明 | 关联:task022
+- change091 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充三段定时、NDX/SPX 和标题型新闻源优化的阶段优先级与风险说明 | 关联:task022
+- change092 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将当前目标更新为 09:25/13:25/18:25 的八品种播报，并明确新新闻源链路与验收标准 | 关联:task022
+- change093 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task022，记录三段定时、NDX/SPX 与新新闻源替换需求 | 关联:task022

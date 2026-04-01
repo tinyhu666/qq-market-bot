@@ -33,7 +33,7 @@ test('readConfig parses onebot configuration', () => {
   ]);
   assert.deepEqual(
     config.symbols.map((item) => item.label),
-    ['XAU', 'XAG', 'WTI', 'ETH', 'USDX', 'SH'],
+    ['XAU', 'XAG', 'WTI', 'ETH', 'NDX', 'SPX', 'USDX', 'SH'],
   );
 });
 
@@ -136,6 +136,20 @@ test('formatReport renders compact quote + news sections', () => {
         percentChange: 0.07,
       },
       {
+        label: 'NDX',
+        displayName: '纳指100（NDX）',
+        price: 23740.19,
+        decimals: 2,
+        percentChange: 3.43,
+      },
+      {
+        label: 'SPX',
+        displayName: '标普500（SPX）',
+        price: 6528.52,
+        decimals: 2,
+        percentChange: 2.91,
+      },
+      {
         label: 'SH',
         displayName: '上证（SH）',
         price: 3230.18,
@@ -177,6 +191,8 @@ test('formatReport renders compact quote + news sections', () => {
   assert.match(report, /白银（XAG\/USD）：33\.187（\+1\.78%）/);
   assert.match(report, /原油（WTI）：81\.22（-0\.56%）/);
   assert.match(report, /以太坊（ETH\/USD）：1,845\.12（\+3\.45%）/);
+  assert.match(report, /纳指100（NDX）：23,740\.19（\+3\.43%）/);
+  assert.match(report, /标普500（SPX）：6,528\.52（\+2\.91%）/);
   assert.match(report, /美元（USDX）：100\.24（\+0\.07%）/);
   assert.match(report, /上证（SH）：3,230\.18（\+0\.24%）/);
   assert.match(report, /【AI Top 1】/);
@@ -276,7 +292,7 @@ test('buildReportMessages splits long news sections', () => {
   assert.match(messages[0], /时间：2026-03-30 09:40/);
 });
 
-test('selectTechAiNewsItems filters noisy titles and prefers AI news', () => {
+test('selectTechAiNewsItems filters noisy titles, trims multi-topic headlines, and removes duplicates', () => {
   const items = selectTechAiNewsItems(
     [
       {
@@ -303,6 +319,14 @@ test('selectTechAiNewsItems filters noisy titles and prefers AI news', () => {
         source: '某媒体',
         publishedAt: new Date('2026-03-30T09:20:00+08:00'),
       },
+      {
+        title:
+          'OpenAI 扩展 Responses API，为自主智能体提供基础设施，微软同步扩展 Copilot 功能',
+        summary:
+          'OpenAI 扩展 Responses API，为自主智能体提供基础设施，微软同步扩展 Copilot 功能。',
+        source: '另一家媒体',
+        publishedAt: new Date('2026-03-30T09:21:00+08:00'),
+      },
     ],
     {
       techAiNewsLimit: 3,
@@ -313,16 +337,24 @@ test('selectTechAiNewsItems filters noisy titles and prefers AI news', () => {
 
   assert.equal(items.length, 3);
   assert.deepEqual(
-    items.map((item) => item.title),
+    items.map((item) => item.title).sort(),
     [
       'Anthropic 发布新一代 Claude 模型，强化代码与智能体能力',
       'OpenAI 扩展 Responses API，为自主智能体提供基础设施',
       '特斯拉将建超级芯片工厂',
-    ],
+    ].sort(),
+  );
+  assert.deepEqual(
+    items.map((item) => item.summary).sort(),
+    [
+      'Anthropic 发布新一代 Claude 模型，强化代码与智能体能力。',
+      'OpenAI 扩展 Responses API，为自主智能体提供基础设施。',
+      '特斯拉将建超级芯片工厂。',
+    ].sort(),
   );
 });
 
-test('selectFinanceNewsItems filters calendar noise and prefers market news', () => {
+test('selectFinanceNewsItems filters calendar noise, clickbait, and duplicate headlines', () => {
   const items = selectFinanceNewsItems(
     [
       {
@@ -366,19 +398,38 @@ test('selectFinanceNewsItems filters calendar noise and prefers market news', ()
         source: '东方财富',
         publishedAt: new Date('2026-03-30T15:50:00+08:00'),
       },
+      {
+        title: 'A股成交额突破1万亿元',
+        summary: 'A股成交额突破1万亿元',
+        source: '第一财经',
+        publishedAt: new Date('2026-03-30T15:55:00+08:00'),
+      },
+      {
+        title: 'A股成交额突破1万亿元',
+        summary: 'A股成交额突破1万亿元',
+        source: '36氪快讯',
+        publishedAt: new Date('2026-03-30T15:56:00+08:00'),
+      },
+      {
+        title: '凌晨突发！超级利好 全线暴涨！',
+        summary: '凌晨突发！超级利好 全线暴涨！',
+        source: '某快讯',
+        publishedAt: new Date('2026-03-30T15:57:00+08:00'),
+      },
     ],
     {
       financeNewsLimit: 2,
     },
+    new Date('2026-03-30T16:00:00+08:00'),
   );
 
   assert.equal(items.length, 2);
   assert.deepEqual(
-    items.map((item) => item.summary),
+    items.map((item) => item.summary).sort(),
     [
+      'A股成交额突破1万亿元',
       '沪指涨0.24%，深证成指跌0.25%，创业板指跌0.68%。成交额超1.9万亿。',
-      '国家药监局表示，今年前三个月，我国创新药对外授权交易总额超过600亿美元。',
-    ],
+    ].sort(),
   );
 });
 
@@ -403,9 +454,13 @@ test('runMarketPush supports dry-run mode', async () => {
               ? 81.22
               : symbolConfig.label === 'ETH'
                 ? 1845.12
-                : symbolConfig.label === 'USDX'
-                  ? 100.24
-                  : 3230.18,
+                : symbolConfig.label === 'NDX'
+                  ? 23740.19
+                  : symbolConfig.label === 'SPX'
+                    ? 6528.52
+                    : symbolConfig.label === 'USDX'
+                      ? 100.24
+                      : 3230.18,
       percentChange:
         symbolConfig.label === 'XAU'
           ? 1.23
@@ -415,9 +470,13 @@ test('runMarketPush supports dry-run mode', async () => {
               ? -0.56
               : symbolConfig.label === 'ETH'
                 ? 3.45
-                : symbolConfig.label === 'USDX'
-                  ? 0.07
-                  : 0.24,
+                : symbolConfig.label === 'NDX'
+                  ? 3.43
+                  : symbolConfig.label === 'SPX'
+                    ? 2.91
+                    : symbolConfig.label === 'USDX'
+                      ? 0.07
+                      : 0.24,
       exchange: '',
       sourceTimestamp: '2026-03-30 09:29:00',
     }),
@@ -438,6 +497,8 @@ test('runMarketPush supports dry-run mode', async () => {
   assert.equal(result.result.dryRun, true);
   assert.match(result.message, /行情定时播报/);
   assert.match(result.message, /黄金（XAU\/USD）：3,123\.56（\+1\.23%）/);
+  assert.match(result.message, /纳指100（NDX）：23,740\.19（\+3\.43%）/);
+  assert.match(result.message, /标普500（SPX）：6,528\.52（\+2\.91%）/);
   assert.match(result.message, /美元（USDX）：100\.24（\+0\.07%）/);
   assert.match(result.message, /上证（SH）：3,230\.18（\+0\.24%）/);
   assert.match(result.message, /【AI Top 1】/);
