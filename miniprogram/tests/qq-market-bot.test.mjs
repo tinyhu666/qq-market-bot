@@ -462,6 +462,24 @@ test('classifyTechAiNewsRegion separates international and domestic ai news', ()
     }),
     'domestic',
   );
+
+  assert.equal(
+    classifyTechAiNewsRegion({
+      title: '联想集团宣布全面转型 AI 原生公司',
+      summary: '联想集团宣布全面转型 AI 原生公司。',
+      source: '某媒体',
+    }),
+    'domestic',
+  );
+
+  assert.equal(
+    classifyTechAiNewsRegion({
+      title: '高德全量开源通用机器人基座模型 ABot-M0',
+      summary: '高德全量开源通用机器人基座模型 ABot-M0。',
+      source: '某媒体',
+    }),
+    'domestic',
+  );
 });
 
 test('parseAibaseNewsItems extracts title, summary, and relative time from listing cards', () => {

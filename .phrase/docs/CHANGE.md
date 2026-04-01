@@ -168,3 +168,5 @@
 - change164 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:新增 AI Top 10 作为过去24小时统一热榜的目标、边界条件与验收要求 | 关联:task031
 - change165 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 AI 热榜混排优先级与热度评分依赖来源权重、时间和覆盖度的风险说明 | 关联:task031
 - change166 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task031，记录过去24小时 AI 热榜、7+3 配比和总热度混排需求 | 关联:task031
+- change167 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 热榜质量与区域识别 | 说明:补充联想、高德等国内公司关键词，并继续收紧会员优惠、限时折扣类促销文案过滤，避免 7+3 配比失真和热榜混入平台活动广告 | 关联:task031
+- change168 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充联想/高德的国内区域识别断言，并将促销文案样例纳入 AI 候选过滤测试 | 关联:task031
