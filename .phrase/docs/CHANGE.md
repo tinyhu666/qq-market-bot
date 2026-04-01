@@ -128,3 +128,13 @@
 - change124 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:线上验证脚本 | 说明:同步新的 AI 新闻 LLM 测试到服务器，并使用独立 Node 运行时完成远端测试通过 | 关联:task025
 - change125 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/README.md | 操作:Modify | 影响:服务器部署目录说明 | 说明:同步最新 README 到服务器目录，保持线上运维目录对 LLM 主备配置与默认超时的说明一致 | 关联:task025
 - change126 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot-run.sh --dry-run | 操作:Modify | 影响:线上 dry-run 验证 | 说明:验证服务器配置已生效，远端 dry-run 成功输出 AI Top 10 与财经 Top 10，确认不会再出现 AI Top 6 的回归 | 关联:task025
+- change127 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:新闻生成与去重链路 | 说明:为 AI 候选增加国际/国内分类与 7+3 配比回填，为财经新闻增加大模型精简总结，并把跨栏目去重扩展到同轮播报和当天状态记忆 | 关联:task026
+- change128 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充国际/国内分类、AI 7+3 配比、财经新闻 LLM 总结以及 AI/财经跨栏目去重测试 | 关联:task026
+- change129 日期:2026-04-01 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充 AI Top 10 采用 7 条国际 + 3 条国内新闻、财经新闻也走大模型总结，以及跨栏目去重的行为说明 | 关联:task026
+- change130 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:新增 AI 7+3 配比、财经新闻大模型总结与 AI/财经跨栏目去重的目标、边界与验收标准 | 关联:task026
+- change131 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 AI 国际/国内配比优先级、财经摘要大模型化，以及跨栏目去重风险记录 | 关联:task026
+- change132 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task026，记录 AI 7+3 配比、财经 LLM 总结和跨栏目去重需求 | 关联:task026
+- change133 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot.mjs | 操作:Modify | 影响:线上新闻生成与去重链路 | 说明:同步带有 AI 7+3 配比、财经新闻 LLM 精简总结和跨栏目去重逻辑的最新脚本到服务器运行目录 | 关联:task026
+- change134 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:线上验证脚本 | 说明:同步 task026 的新增测试到服务器，并用独立 Node 运行时验证 20 项测试全部通过 | 关联:task026
+- change135 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/README.md | 操作:Modify | 影响:服务器部署目录说明 | 说明:同步最新 README 到服务器目录，使线上运维文档与 AI 7+3 配比、财经 LLM 总结和跨栏目去重行为保持一致 | 关联:task026
+- change136 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot-run.sh --dry-run | 操作:Modify | 影响:线上 dry-run 验证 | 说明:使用临时新闻状态文件完成远端 dry-run，确认 Gemini 超时时会回退 DeepSeek，AI 区仍为 7+3 配比且财经区改为更精简的不重复摘要 | 关联:task026

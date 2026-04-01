@@ -47,6 +47,7 @@ const DEFAULT_AI_NEWS_LLM_PRIMARY_PROVIDER = 'gemini';
 const DEFAULT_AI_NEWS_LLM_FALLBACK_PROVIDER = 'deepseek';
 const DEFAULT_AI_NEWS_GEMINI_MODEL = 'gemini-2.5-flash';
 const DEFAULT_AI_NEWS_DEEPSEEK_MODEL = 'deepseek-chat';
+const DEFAULT_TECH_AI_DOMESTIC_NEWS_LIMIT = 3;
 const MESSAGE_SECTION_SEPARATOR = '\n----------------\n';
 const NEWS_DUPLICATE_SIMILARITY_THRESHOLD = 0.88;
 const DEFAULT_REQUEST_HEADERS = {
@@ -166,6 +167,84 @@ const TECH_AI_NEWS_FILTER_CONFIG = {
     '折叠屏',
     '企业全情报',
     '纸扎',
+  ],
+};
+
+const TECH_AI_NEWS_REGION_CONFIG = {
+  domesticKeywords: [
+    '中国',
+    '国内',
+    '国产',
+    '本土',
+    '百度',
+    '阿里',
+    '阿里云',
+    '腾讯',
+    '字节',
+    '字节跳动',
+    '华为',
+    '小米',
+    '京东',
+    '美团',
+    '蚂蚁',
+    '深度求索',
+    'deepseek',
+    '千问',
+    'qwen',
+    '通义',
+    'kimi',
+    '月之暗面',
+    '智谱',
+    'minimax',
+    '百川',
+    '阶跃星辰',
+    '零一万物',
+    '商汤',
+    '优必选',
+    '科大讯飞',
+    '王者荣耀',
+  ],
+  domesticLocationKeywords: [
+    '北京',
+    '上海',
+    '深圳',
+    '杭州',
+    '广州',
+    '成都',
+    '苏州',
+    '香港',
+  ],
+  internationalKeywords: [
+    'openai',
+    'anthropic',
+    'claude',
+    'google',
+    'deepmind',
+    'meta',
+    'microsoft',
+    'copilot',
+    'apple',
+    'amazon',
+    'aws',
+    'nvidia',
+    'cuda',
+    'amd',
+    'intel',
+    'tesla',
+    'xai',
+    'grok',
+    'mistral',
+    'perplexity',
+    'oracle',
+    'ibm',
+    'adobe',
+    'midjourney',
+    'openrouter',
+    'y combinator',
+    'yc',
+    'github',
+    'ios',
+    'iphone',
   ],
 };
 
@@ -760,6 +839,14 @@ function buildNewsFingerprint(item, category) {
   return normalizeNewsDuplicateText(primaryText || secondaryText || '');
 }
 
+function buildSummaryFingerprint(item, category) {
+  const summaryText =
+    category === 'finance'
+      ? normalizeFinanceHeadline(item.summary || item.title || '')
+      : normalizeTechAiNewsTitle(item.summary || item.title || '');
+  return normalizeNewsDuplicateText(summaryText);
+}
+
 function createEmptyDailyNewsState() {
   return {
     version: DAILY_NEWS_STATE_VERSION,
@@ -833,11 +920,13 @@ export function filterDailyDuplicateNews(
 ) {
   const normalizedState = normalizeDailyNewsState(state);
   const dateKey = formatDateKey(generatedAt, config.timeZone);
+  const dayState = normalizedState.days[dateKey] || {};
+  const globalSeenFingerprints = Object.values(dayState)
+    .flatMap((items) => items || [])
+    .filter(Boolean);
 
   return newsSections.map((section) => {
-    const seenFingerprints = [
-      ...((normalizedState.days[dateKey] || {})[section.category] || []),
-    ];
+    const seenFingerprints = [...globalSeenFingerprints];
     const uniqueItems = [];
 
     for (const item of section.items || []) {
@@ -849,6 +938,7 @@ export function filterDailyDuplicateNews(
       uniqueItems.push(item);
       if (fingerprint) {
         seenFingerprints.push(fingerprint);
+        globalSeenFingerprints.push(fingerprint);
       }
     }
 
@@ -1485,7 +1575,41 @@ function buildTechAiNewsItem(item, maxLength) {
     source: item.source || '',
     publishedAt: item.publishedAt,
     fingerprint: item.fingerprint || '',
+    region: item.region || classifyTechAiNewsRegion(item),
   };
+}
+
+export function classifyTechAiNewsRegion(item) {
+  const haystack = normalizeWhitespace(
+    `${item?.title || ''} ${item?.summary || ''} ${item?.source || ''}`,
+  ).toLowerCase();
+  const domesticHits =
+    countMatchedKeywords(
+      haystack,
+      TECH_AI_NEWS_REGION_CONFIG.domesticKeywords,
+    ) +
+    countMatchedKeywords(
+      haystack,
+      TECH_AI_NEWS_REGION_CONFIG.domesticLocationKeywords,
+    );
+  const internationalHits = countMatchedKeywords(
+    haystack,
+    TECH_AI_NEWS_REGION_CONFIG.internationalKeywords,
+  );
+
+  if (domesticHits > internationalHits && domesticHits > 0) {
+    return 'domestic';
+  }
+
+  if (internationalHits > domesticHits && internationalHits > 0) {
+    return 'international';
+  }
+
+  if (/(中国|国内|国产|本土)/u.test(haystack)) {
+    return 'domestic';
+  }
+
+  return 'international';
 }
 
 function includesKeyword(text, keyword) {
@@ -1577,10 +1701,24 @@ export function selectTechAiNewsItems(
     );
 }
 
-function getDailySeenFingerprints(state, category, config, generatedAt) {
+function getDailySeenFingerprints(
+  state,
+  category,
+  config,
+  generatedAt,
+  { includeAllCategories = false } = {},
+) {
   const normalizedState = normalizeDailyNewsState(state);
   const dateKey = formatDateKey(generatedAt, config.timeZone);
-  return [...((normalizedState.days[dateKey] || {})[category] || [])];
+  const dayState = normalizedState.days[dateKey] || {};
+
+  if (includeAllCategories) {
+    return Object.values(dayState)
+      .flatMap((items) => items || [])
+      .filter(Boolean);
+  }
+
+  return [...(dayState[category] || [])];
 }
 
 function filterPreviouslySentNewsItems(
@@ -1589,12 +1727,14 @@ function filterPreviouslySentNewsItems(
   state,
   config,
   generatedAt = new Date(),
+  options = {},
 ) {
   const seenFingerprints = getDailySeenFingerprints(
     state,
     category,
     config,
     generatedAt,
+    options,
   );
 
   if (seenFingerprints.length === 0) {
@@ -1626,40 +1766,108 @@ function filterPreviouslySentNewsItems(
   };
 }
 
+function filterNewsItemsByFingerprints(items, category, seenFingerprints) {
+  if (!Array.isArray(seenFingerprints) || seenFingerprints.length === 0) {
+    return {
+      items,
+      filteredCount: 0,
+    };
+  }
+
+  const filteredItems = [];
+  let filteredCount = 0;
+
+  for (const item of items) {
+    const fingerprint = buildNewsFingerprint(item, category);
+    if (shouldSkipNewsByFingerprint(fingerprint, seenFingerprints)) {
+      filteredCount += 1;
+      continue;
+    }
+
+    filteredItems.push({
+      ...item,
+      fingerprint: item.fingerprint || fingerprint,
+    });
+  }
+
+  return {
+    items: filteredItems,
+    filteredCount,
+  };
+}
+
 function buildAiNewsLlmCandidateList(items) {
   return items.map((item, index) => ({
     candidateId: `c${String(index + 1).padStart(2, '0')}`,
     item,
+    region: item.region || classifyTechAiNewsRegion(item),
   }));
 }
 
-function buildAiNewsLlmPrompt(candidates, limit) {
-  const candidateLines = candidates.map(({ candidateId, item }) => {
-    const publishedAt =
-      item.publishedAt instanceof Date &&
-      !Number.isNaN(item.publishedAt.valueOf())
-        ? item.publishedAt.toISOString()
-        : '';
-
-    return [
-      `${candidateId}`,
-      item.source || '未知来源',
-      publishedAt || '未知时间',
-      item.title || item.summary || '',
-      item.summary || item.title || '',
-    ].join(' | ');
-  });
+function formatNewsLlmCandidateLine(candidateId, item) {
+  const publishedAt =
+    item.publishedAt instanceof Date &&
+    !Number.isNaN(item.publishedAt.valueOf())
+      ? item.publishedAt.toISOString()
+      : '';
 
   return [
-    `你是一名中文科技媒体编辑，请从候选列表中选出最值得播报的 AI 行业新闻，最多 ${limit} 条。`,
+    `${candidateId}`,
+    item.source || '未知来源',
+    publishedAt || '未知时间',
+    item.title || item.summary || '',
+    item.summary || item.title || '',
+  ].join(' | ');
+}
+
+function buildAiNewsLlmPrompt(candidates, config) {
+  const domesticTarget = Math.min(
+    DEFAULT_TECH_AI_DOMESTIC_NEWS_LIMIT,
+    config.techAiNewsLimit,
+  );
+  const internationalTarget = Math.max(
+    config.techAiNewsLimit - domesticTarget,
+    0,
+  );
+  const internationalCandidates = candidates
+    .filter((candidate) => candidate.region !== 'domestic')
+    .map((candidate) =>
+      formatNewsLlmCandidateLine(candidate.candidateId, candidate.item),
+    );
+  const domesticCandidates = candidates
+    .filter((candidate) => candidate.region === 'domestic')
+    .map((candidate) =>
+      formatNewsLlmCandidateLine(candidate.candidateId, candidate.item),
+    );
+
+  return [
+    `你是一名中文科技媒体编辑，请从候选列表中选出最值得播报的 AI 行业新闻，总数最多 ${config.techAiNewsLimit} 条。`,
+    `如果候选数量足够，请尽量输出 ${internationalTarget} 条国际新闻和 ${domesticTarget} 条国内新闻。`,
     '只允许根据候选列表挑选，不能编造新事实，不能引入列表外事件。',
     '优先选择与大模型、智能体、推理、芯片、算力、AI 基础设施、重要产品发布、企业 AI 战略、重大融资并购、监管和平台能力变化相关的内容。',
     '排除纯活动预告、泛营销、弱相关消费电子、校园/政务/直播类噪音内容。',
     '请为每条输出一句中文总结，要求：完整、客观、18-36 个汉字优先、不带链接/来源/序号/引号。',
-    `如果候选数量足够，请尽量返回 ${limit} 条，不要无故少于这个数量。`,
-    '必须严格输出 JSON，对象格式为 {"items":[{"candidateId":"c01","summary":"..." }]}。',
+    '必须严格输出 JSON，对象格式为 {"internationalItems":[{"candidateId":"c01","summary":"..."}],"domesticItems":[{"candidateId":"c08","summary":"..."}]}。',
+    '国际候选：',
+    ...(internationalCandidates.length > 0 ? internationalCandidates : ['无']),
+    '国内候选：',
+    ...(domesticCandidates.length > 0 ? domesticCandidates : ['无']),
+  ].join('\n');
+}
+
+function buildFinanceNewsLlmPrompt(candidates) {
+  return [
+    `你是一名中文财经编辑，请基于候选列表输出最多 ${candidates.length} 条市场快讯总结。`,
+    '数据源仍然以候选列表为准，不能编造列表外事实，不能更改事件方向。',
+    '请保留价格、指数、财报、公司、政策、成交额等核心信息，去掉公告腔、标题党和冗余修饰。',
+    '每条输出一句中文总结，要求：完整、客观、18-36 个汉字优先，不带链接、来源、序号或“快讯/报道称”。',
+    '如果两条候选明显是同一事件或同一资产的重复波动，只保留信息更完整的一条，并优先保留主题更分散的结果。',
+    '如果候选高度重复，可以少于上限返回，不要为了凑满条数重复表达同一件事。',
+    '必须严格输出 JSON，对象格式为 {"items":[{"candidateId":"c01","summary":"..."}]}。',
     '候选列表：',
-    ...candidateLines,
+    ...candidates.map(({ candidateId, item }) =>
+      formatNewsLlmCandidateLine(candidateId, item),
+    ),
   ].join('\n');
 }
 
@@ -1677,85 +1885,262 @@ function parseJsonTextResponse(rawText, providerLabel) {
   }
 }
 
-function normalizeAiNewsLlmItems(payload, candidates, config) {
-  const candidateMap = new Map(
-    candidates.map((entry) => [entry.candidateId, entry.item]),
+function normalizeNewsLlmSelectedItem(
+  rawItem,
+  candidateEntry,
+  config,
+  category,
+  builder,
+) {
+  const generatedSummary = normalizeSummaryLine(
+    normalizeWhitespace(stripHtml(String(rawItem?.summary || ''))),
+    config.newsSummaryMaxLength,
   );
-  const selectedItems = [];
-  const seenCandidateIds = new Set();
-  const seenFingerprints = [];
+  const fingerprint = buildNewsFingerprint(candidateEntry.item, category);
 
-  for (const rawItem of payload?.items || []) {
-    const candidateId = String(rawItem?.candidateId || '').trim();
-    if (!candidateId || seenCandidateIds.has(candidateId)) {
-      continue;
-    }
-
-    const candidateItem = candidateMap.get(candidateId);
-    if (!candidateItem) {
-      continue;
-    }
-
-    const generatedSummary = normalizeSummaryLine(
-      normalizeWhitespace(stripHtml(String(rawItem?.summary || ''))),
-      config.newsSummaryMaxLength,
-    );
-    const fingerprint = buildNewsFingerprint(candidateItem, 'tech-ai');
-    const normalizedItem = buildTechAiNewsItem(
+  return {
+    candidateId: candidateEntry.candidateId,
+    region: candidateEntry.region || '',
+    item: builder(
       {
-        ...candidateItem,
+        ...candidateEntry.item,
         summary:
           generatedSummary ||
-          candidateItem.summary ||
-          candidateItem.title ||
+          candidateEntry.item.summary ||
+          candidateEntry.item.title ||
           '',
         fingerprint,
+        region: candidateEntry.region || candidateEntry.item.region || '',
+        preferGeneratedSummary: true,
       },
       config.newsSummaryMaxLength,
-    );
+    ),
+  };
+}
 
-    const normalizedFingerprint = buildNewsFingerprint(
-      normalizedItem,
-      'tech-ai',
-    );
-    if (shouldSkipNewsByFingerprint(normalizedFingerprint, seenFingerprints)) {
-      continue;
-    }
+function normalizeFinanceNewsItem(item, maxLength) {
+  const financeMaxLength = Math.max(maxLength, 68);
+  const cleanedTitle = normalizeFinanceHeadline(
+    item.title || item.summary || '',
+  );
+  const cleanedSummary = normalizeSummaryLine(
+    stripFinanceNoise(item.summary || item.title || ''),
+    financeMaxLength,
+  );
+  const fallbackSummary = normalizeSummaryLine(
+    stripFinanceNoise(cleanedTitle || item.summary || ''),
+    financeMaxLength,
+  );
 
-    selectedItems.push(normalizedItem);
-    seenCandidateIds.add(candidateId);
-    if (normalizedFingerprint) {
-      seenFingerprints.push(normalizedFingerprint);
-    }
+  return {
+    title: cleanedTitle || item.title || '',
+    summary:
+      item.preferGeneratedSummary &&
+      !isLowQualityFinanceSummaryLine(cleanedSummary)
+        ? cleanedSummary
+        : chooseFinanceSummary(
+            cleanedSummary,
+            fallbackSummary,
+            item.source || '',
+          ),
+    source: item.source || '',
+    publishedAt: item.publishedAt instanceof Date ? item.publishedAt : null,
+    fingerprint: item.fingerprint || '',
+  };
+}
 
-    if (selectedItems.length >= config.techAiNewsLimit) {
-      break;
+function normalizeAiNewsLlmItems(payload, candidates, config) {
+  const candidateMap = new Map(
+    candidates.map((entry) => [entry.candidateId, entry]),
+  );
+  const domesticTarget = Math.min(
+    DEFAULT_TECH_AI_DOMESTIC_NEWS_LIMIT,
+    config.techAiNewsLimit,
+  );
+  const internationalTarget = Math.max(
+    config.techAiNewsLimit - domesticTarget,
+    0,
+  );
+  const selectedBuckets = {
+    international: [],
+    domestic: [],
+  };
+  const seenCandidateIds = new Set();
+  const seenFingerprints = [];
+  const bucketedPayload =
+    Array.isArray(payload?.items) &&
+    !Array.isArray(payload?.internationalItems) &&
+    !Array.isArray(payload?.domesticItems)
+      ? {
+          internationalItems: payload.items.filter((rawItem) => {
+            const candidate = candidateMap.get(
+              String(rawItem?.candidateId || '').trim(),
+            );
+            return candidate?.region !== 'domestic';
+          }),
+          domesticItems: payload.items.filter((rawItem) => {
+            const candidate = candidateMap.get(
+              String(rawItem?.candidateId || '').trim(),
+            );
+            return candidate?.region === 'domestic';
+          }),
+        }
+      : payload || {};
+
+  for (const [region, rawItems] of [
+    ['international', bucketedPayload.internationalItems || []],
+    ['domestic', bucketedPayload.domesticItems || []],
+  ]) {
+    for (const rawItem of rawItems) {
+      const candidateId = String(rawItem?.candidateId || '').trim();
+      if (!candidateId || seenCandidateIds.has(candidateId)) {
+        continue;
+      }
+
+      const candidateEntry = candidateMap.get(candidateId);
+      if (!candidateEntry || candidateEntry.region !== region) {
+        continue;
+      }
+
+      const normalizedEntry = normalizeNewsLlmSelectedItem(
+        rawItem,
+        candidateEntry,
+        config,
+        'tech-ai',
+        buildTechAiNewsItem,
+      );
+      const normalizedFingerprint = buildNewsFingerprint(
+        normalizedEntry.item,
+        'tech-ai',
+      );
+      const summaryFingerprint = buildSummaryFingerprint(
+        normalizedEntry.item,
+        'tech-ai',
+      );
+
+      if (
+        shouldSkipNewsByFingerprint(normalizedFingerprint, seenFingerprints) ||
+        shouldSkipNewsByFingerprint(summaryFingerprint, seenFingerprints)
+      ) {
+        continue;
+      }
+
+      selectedBuckets[region].push(normalizedEntry);
+      seenCandidateIds.add(candidateId);
+      if (normalizedFingerprint) {
+        seenFingerprints.push(normalizedFingerprint);
+      }
+      if (summaryFingerprint) {
+        seenFingerprints.push(summaryFingerprint);
+      }
     }
   }
 
-  if (selectedItems.length < config.techAiNewsLimit) {
-    for (const entry of candidates) {
-      if (seenCandidateIds.has(entry.candidateId)) {
+  for (const [region, target] of [
+    ['international', internationalTarget],
+    ['domestic', domesticTarget],
+  ]) {
+    if (selectedBuckets[region].length >= target) {
+      continue;
+    }
+
+    for (const candidateEntry of candidates) {
+      if (
+        candidateEntry.region !== region ||
+        seenCandidateIds.has(candidateEntry.candidateId)
+      ) {
         continue;
       }
 
-      const fallbackFingerprint = buildNewsFingerprint(entry.item, 'tech-ai');
-      if (shouldSkipNewsByFingerprint(fallbackFingerprint, seenFingerprints)) {
-        continue;
-      }
-
-      selectedItems.push(
-        buildTechAiNewsItem(
-          {
-            ...entry.item,
-            fingerprint: fallbackFingerprint,
-          },
-          config.newsSummaryMaxLength,
-        ),
+      const fallbackFingerprint = buildNewsFingerprint(
+        candidateEntry.item,
+        'tech-ai',
       );
-      seenCandidateIds.add(entry.candidateId);
+      const fallbackItem = buildTechAiNewsItem(
+        {
+          ...candidateEntry.item,
+          fingerprint: fallbackFingerprint,
+          region,
+        },
+        config.newsSummaryMaxLength,
+      );
+      const fallbackSummaryFingerprint = buildSummaryFingerprint(
+        fallbackItem,
+        'tech-ai',
+      );
+      if (
+        shouldSkipNewsByFingerprint(fallbackFingerprint, seenFingerprints) ||
+        shouldSkipNewsByFingerprint(
+          fallbackSummaryFingerprint,
+          seenFingerprints,
+        )
+      ) {
+        continue;
+      }
+
+      selectedBuckets[region].push({
+        candidateId: candidateEntry.candidateId,
+        region,
+        item: fallbackItem,
+      });
+      seenCandidateIds.add(candidateEntry.candidateId);
       if (fallbackFingerprint) {
         seenFingerprints.push(fallbackFingerprint);
+      }
+      if (fallbackSummaryFingerprint) {
+        seenFingerprints.push(fallbackSummaryFingerprint);
+      }
+
+      if (selectedBuckets[region].length >= target) {
+        break;
+      }
+    }
+  }
+
+  const selectedItems = [
+    ...selectedBuckets.international.map((entry) => entry.item),
+    ...selectedBuckets.domestic.map((entry) => entry.item),
+  ];
+
+  if (selectedItems.length < config.techAiNewsLimit) {
+    for (const candidateEntry of candidates) {
+      if (seenCandidateIds.has(candidateEntry.candidateId)) {
+        continue;
+      }
+
+      const fallbackFingerprint = buildNewsFingerprint(
+        candidateEntry.item,
+        'tech-ai',
+      );
+      const fallbackItem = buildTechAiNewsItem(
+        {
+          ...candidateEntry.item,
+          fingerprint: fallbackFingerprint,
+          region: candidateEntry.region,
+        },
+        config.newsSummaryMaxLength,
+      );
+      const fallbackSummaryFingerprint = buildSummaryFingerprint(
+        fallbackItem,
+        'tech-ai',
+      );
+      if (
+        shouldSkipNewsByFingerprint(fallbackFingerprint, seenFingerprints) ||
+        shouldSkipNewsByFingerprint(
+          fallbackSummaryFingerprint,
+          seenFingerprints,
+        )
+      ) {
+        continue;
+      }
+
+      selectedItems.push(fallbackItem);
+      seenCandidateIds.add(candidateEntry.candidateId);
+      if (fallbackFingerprint) {
+        seenFingerprints.push(fallbackFingerprint);
+      }
+      if (fallbackSummaryFingerprint) {
+        seenFingerprints.push(fallbackSummaryFingerprint);
       }
 
       if (selectedItems.length >= config.techAiNewsLimit) {
@@ -1767,8 +2152,112 @@ function normalizeAiNewsLlmItems(payload, candidates, config) {
   return selectedItems;
 }
 
-async function generateTechAiNewsWithGemini(candidates, config) {
-  const prompt = buildAiNewsLlmPrompt(candidates, config.techAiNewsLimit);
+function normalizeFinanceNewsLlmItems(payload, candidates, config) {
+  const candidateMap = new Map(
+    candidates.map((entry) => [entry.candidateId, entry]),
+  );
+  const selectedItems = [];
+  const seenCandidateIds = new Set();
+  const seenFingerprints = [];
+
+  for (const rawItem of payload?.items || []) {
+    const candidateId = String(rawItem?.candidateId || '').trim();
+    if (!candidateId || seenCandidateIds.has(candidateId)) {
+      continue;
+    }
+
+    const candidateEntry = candidateMap.get(candidateId);
+    if (!candidateEntry) {
+      continue;
+    }
+
+    const normalizedEntry = normalizeNewsLlmSelectedItem(
+      rawItem,
+      candidateEntry,
+      config,
+      'finance',
+      normalizeFinanceNewsItem,
+    );
+    const normalizedFingerprint = buildNewsFingerprint(
+      normalizedEntry.item,
+      'finance',
+    );
+    const summaryFingerprint = buildSummaryFingerprint(
+      normalizedEntry.item,
+      'finance',
+    );
+
+    if (
+      shouldSkipNewsByFingerprint(normalizedFingerprint, seenFingerprints) ||
+      shouldSkipNewsByFingerprint(summaryFingerprint, seenFingerprints)
+    ) {
+      continue;
+    }
+
+    selectedItems.push(normalizedEntry.item);
+    seenCandidateIds.add(candidateId);
+    if (normalizedFingerprint) {
+      seenFingerprints.push(normalizedFingerprint);
+    }
+    if (summaryFingerprint) {
+      seenFingerprints.push(summaryFingerprint);
+    }
+
+    if (selectedItems.length >= config.financeNewsLimit) {
+      break;
+    }
+  }
+
+  if (selectedItems.length === 0) {
+    for (const candidateEntry of candidates) {
+      if (seenCandidateIds.has(candidateEntry.candidateId)) {
+        continue;
+      }
+
+      const fallbackFingerprint = buildNewsFingerprint(
+        candidateEntry.item,
+        'finance',
+      );
+      const fallbackItem = normalizeFinanceNewsItem(
+        {
+          ...candidateEntry.item,
+          fingerprint: fallbackFingerprint,
+        },
+        config.newsSummaryMaxLength,
+      );
+      const fallbackSummaryFingerprint = buildSummaryFingerprint(
+        fallbackItem,
+        'finance',
+      );
+      if (
+        shouldSkipNewsByFingerprint(fallbackFingerprint, seenFingerprints) ||
+        shouldSkipNewsByFingerprint(
+          fallbackSummaryFingerprint,
+          seenFingerprints,
+        )
+      ) {
+        continue;
+      }
+
+      selectedItems.push(fallbackItem);
+      seenCandidateIds.add(candidateEntry.candidateId);
+      if (fallbackFingerprint) {
+        seenFingerprints.push(fallbackFingerprint);
+      }
+      if (fallbackSummaryFingerprint) {
+        seenFingerprints.push(fallbackSummaryFingerprint);
+      }
+
+      if (selectedItems.length >= config.financeNewsLimit) {
+        break;
+      }
+    }
+  }
+
+  return selectedItems;
+}
+
+async function fetchLlmJsonWithGemini(prompt, config, responseJsonSchema) {
   const url = `${GEMINI_GENERATE_CONTENT_BASE_URL}${encodeURIComponent(
     config.aiNewsGeminiModel,
   )}:generateContent`;
@@ -1792,27 +2281,7 @@ async function generateTechAiNewsWithGemini(candidates, config) {
       generationConfig: {
         temperature: 0.2,
         responseMimeType: 'application/json',
-        responseJsonSchema: {
-          type: 'object',
-          properties: {
-            items: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  candidateId: {
-                    type: 'string',
-                  },
-                  summary: {
-                    type: 'string',
-                  },
-                },
-                required: ['candidateId', 'summary'],
-              },
-            },
-          },
-          required: ['items'],
-        },
+        responseJsonSchema,
       },
     }),
     signal: AbortSignal.timeout(config.aiNewsLlmTimeoutMs),
@@ -1824,18 +2293,13 @@ async function generateTechAiNewsWithGemini(candidates, config) {
     .trim();
 
   if (!text) {
-    throw new Error('Gemini 未返回可用的 AI 新闻结果');
+    throw new Error('Gemini 未返回可用的结构化结果');
   }
 
-  return normalizeAiNewsLlmItems(
-    parseJsonTextResponse(text, 'Gemini'),
-    candidates,
-    config,
-  );
+  return parseJsonTextResponse(text, 'Gemini');
 }
 
-async function generateTechAiNewsWithDeepSeek(candidates, config) {
-  const prompt = buildAiNewsLlmPrompt(candidates, config.techAiNewsLimit);
+async function fetchLlmJsonWithDeepSeek(prompt, config) {
   const response = await fetchJson(DEEPSEEK_CHAT_COMPLETIONS_URL, {
     method: 'POST',
     headers: {
@@ -1866,17 +2330,13 @@ async function generateTechAiNewsWithDeepSeek(candidates, config) {
   const text = response?.choices?.[0]?.message?.content || '';
 
   if (!text.trim()) {
-    throw new Error('DeepSeek 未返回可用的 AI 新闻结果');
+    throw new Error('DeepSeek 未返回可用的结构化结果');
   }
 
-  return normalizeAiNewsLlmItems(
-    parseJsonTextResponse(text, 'DeepSeek'),
-    candidates,
-    config,
-  );
+  return parseJsonTextResponse(text, 'DeepSeek');
 }
 
-function resolveAiNewsLlmProviders(config) {
+function resolveNewsLlmProviders(config) {
   const providers = [
     config.aiNewsLlmProvider,
     config.aiNewsLlmFallbackProvider,
@@ -1889,23 +2349,23 @@ function resolveAiNewsLlmProviders(config) {
   );
 }
 
-export async function generateTechAiNewsWithLlm(candidates, config) {
-  const providerOrder = resolveAiNewsLlmProviders(config);
+async function fetchNewsLlmPayload(prompt, config, responseJsonSchema, label) {
+  const providerOrder = resolveNewsLlmProviders(config);
   let lastError = null;
 
   for (const provider of providerOrder) {
     try {
       if (provider === 'gemini') {
-        return await generateTechAiNewsWithGemini(candidates, config);
+        return await fetchLlmJsonWithGemini(prompt, config, responseJsonSchema);
       }
 
       if (provider === 'deepseek') {
-        return await generateTechAiNewsWithDeepSeek(candidates, config);
+        return await fetchLlmJsonWithDeepSeek(prompt, config);
       }
     } catch (error) {
       lastError = error;
       console.warn(
-        `[qq-market-bot] AI 新闻 LLM ${provider} 调用失败，准备尝试下一个提供方：${
+        `[qq-market-bot] ${label} LLM ${provider} 调用失败，准备尝试下一个提供方：${
           error instanceof Error ? error.message : String(error)
         }`,
       );
@@ -1913,8 +2373,73 @@ export async function generateTechAiNewsWithLlm(candidates, config) {
   }
 
   throw (
-    lastError || new Error('未配置可用的 AI 新闻 LLM 提供方，请检查 API key')
+    lastError || new Error(`未配置可用的 ${label} LLM 提供方，请检查 API key`)
   );
+}
+
+export async function generateTechAiNewsWithLlm(candidates, config) {
+  const payload = await fetchNewsLlmPayload(
+    buildAiNewsLlmPrompt(candidates, config),
+    config,
+    {
+      type: 'object',
+      properties: {
+        internationalItems: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              candidateId: { type: 'string' },
+              summary: { type: 'string' },
+            },
+            required: ['candidateId', 'summary'],
+          },
+        },
+        domesticItems: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              candidateId: { type: 'string' },
+              summary: { type: 'string' },
+            },
+            required: ['candidateId', 'summary'],
+          },
+        },
+      },
+      required: ['internationalItems', 'domesticItems'],
+    },
+    'AI 新闻',
+  );
+
+  return normalizeAiNewsLlmItems(payload, candidates, config);
+}
+
+export async function generateFinanceNewsWithLlm(candidates, config) {
+  const payload = await fetchNewsLlmPayload(
+    buildFinanceNewsLlmPrompt(candidates),
+    config,
+    {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              candidateId: { type: 'string' },
+              summary: { type: 'string' },
+            },
+            required: ['candidateId', 'summary'],
+          },
+        },
+      },
+      required: ['items'],
+    },
+    '财经新闻',
+  );
+
+  return normalizeFinanceNewsLlmItems(payload, candidates, config);
 }
 
 function buildEastmoneyFinanceNewsItem(item, maxLength) {
@@ -1940,6 +2465,7 @@ function buildEastmoneyFinanceNewsItem(item, maxLength) {
     summary: chooseFinanceSummary(summary, fallbackSummary, item.source || ''),
     source: item.source || '',
     publishedAt,
+    fingerprint: item.fingerprint || '',
   };
 }
 
@@ -2040,6 +2566,9 @@ async function fetchTechAiNewsCategory(config) {
           config.currentDailyNewsState,
           config,
           config.generatedAtForNews || new Date(),
+          {
+            includeAllCategories: true,
+          },
         )
       : {
           items: candidateItems,
@@ -2049,7 +2578,7 @@ async function fetchTechAiNewsCategory(config) {
 
   if (
     config.aiNewsLlmEnabled &&
-    resolveAiNewsLlmProviders(config).length > 0 &&
+    resolveNewsLlmProviders(config).length > 0 &&
     unseenCandidateResult.items.length > 0
   ) {
     try {
@@ -2109,6 +2638,7 @@ function buildFinanceHeadlineNewsItem(item, maxLength) {
     summary: summary || appendFullStop(cleanedTitle),
     source: item.source || '',
     publishedAt: item.publishedAt instanceof Date ? item.publishedAt : null,
+    fingerprint: item.fingerprint || '',
   };
 }
 
@@ -2318,10 +2848,69 @@ async function fetchFinanceNewsCategory(config) {
     throw new Error(errors.join('；'));
   }
 
+  const unseenCandidateResult =
+    config.dailyNewsDedupEnabled && config.currentDailyNewsState
+      ? filterPreviouslySentNewsItems(
+          selectedItems,
+          category,
+          config.currentDailyNewsState,
+          config,
+          config.generatedAtForNews || new Date(),
+          {
+            includeAllCategories: true,
+          },
+        )
+      : {
+          items: selectedItems,
+          filteredCount: 0,
+        };
+  const crossSectionFilteredResult =
+    Array.isArray(config.excludedNewsFingerprints) &&
+    config.excludedNewsFingerprints.length > 0
+      ? filterNewsItemsByFingerprints(
+          unseenCandidateResult.items,
+          category,
+          config.excludedNewsFingerprints,
+        )
+      : {
+          items: unseenCandidateResult.items,
+          filteredCount: 0,
+        };
+  let items = crossSectionFilteredResult.items.slice(
+    0,
+    config.financeNewsLimit,
+  );
+
+  if (
+    config.aiNewsLlmEnabled &&
+    resolveNewsLlmProviders(config).length > 0 &&
+    items.length > 0
+  ) {
+    try {
+      const llmCandidates = buildAiNewsLlmCandidateList(items);
+      const llmItems = await generateFinanceNewsWithLlm(llmCandidates, config);
+      if (llmItems.length > 0) {
+        items = llmItems;
+      }
+    } catch (error) {
+      console.warn(
+        `[qq-market-bot] 财经新闻 LLM 汇总失败，已回退到规则筛选：${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
   return {
     category,
     title: NEWS_CATEGORY_CONFIG[category].title,
-    items: selectedItems,
+    items,
+    emptyText:
+      items.length === 0 &&
+      (unseenCandidateResult.filteredCount > 0 ||
+        crossSectionFilteredResult.filteredCount > 0)
+        ? '今天暂无新的新闻。'
+        : '',
     error: '',
   };
 }
@@ -2802,24 +3391,38 @@ export async function collectQuotes(config, quoteFetcher = fetchQuote) {
 
 export async function collectNews(config, newsFetcher = fetchNewsSection) {
   const categories = ['tech-ai', 'finance'];
+  const sections = [];
+  const seenFingerprints = [];
 
-  return Promise.all(
-    categories.map(async (category) => {
-      try {
-        return await newsFetcher(category, config);
-      } catch (error) {
-        return {
-          category,
-          title: NEWS_CATEGORY_CONFIG[category].title,
-          items: [],
-          error:
-            error instanceof Error
-              ? error.message
-              : `抓取 ${category} 新闻失败`,
-        };
+  for (const category of categories) {
+    try {
+      const section = await newsFetcher(category, {
+        ...config,
+        excludedNewsFingerprints: [...seenFingerprints],
+      });
+      sections.push(section);
+
+      for (const item of section.items || []) {
+        const fingerprint = buildNewsFingerprint(item, category);
+        if (
+          fingerprint &&
+          !shouldSkipNewsByFingerprint(fingerprint, seenFingerprints)
+        ) {
+          seenFingerprints.push(fingerprint);
+        }
       }
-    }),
-  );
+    } catch (error) {
+      sections.push({
+        category,
+        title: NEWS_CATEGORY_CONFIG[category].title,
+        items: [],
+        error:
+          error instanceof Error ? error.message : `抓取 ${category} 新闻失败`,
+      });
+    }
+  }
+
+  return sections;
 }
 
 function formatPriceSection(quotes, generatedAt, timeZone) {

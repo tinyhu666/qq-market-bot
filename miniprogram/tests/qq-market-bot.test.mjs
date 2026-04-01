@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 
 import {
   buildReportMessages,
+  classifyTechAiNewsRegion,
   fetchQuote,
   formatReport,
+  generateFinanceNewsWithLlm,
   generateTechAiNewsWithLlm,
   normalizeSummaryLine,
   readConfig,
@@ -356,6 +358,26 @@ test('selectTechAiNewsItems filters noisy titles, trims multi-topic headlines, a
   );
 });
 
+test('classifyTechAiNewsRegion separates international and domestic ai news', () => {
+  assert.equal(
+    classifyTechAiNewsRegion({
+      title: 'OpenAI 扩展 Responses API，为自主智能体提供基础设施',
+      summary: 'OpenAI 扩展 Responses API，为自主智能体提供基础设施。',
+      source: '某媒体',
+    }),
+    'international',
+  );
+
+  assert.equal(
+    classifyTechAiNewsRegion({
+      title: '阿里云发布通义千问新模型，强化企业智能体能力',
+      summary: '阿里云发布通义千问新模型，强化企业智能体能力。',
+      source: '某媒体',
+    }),
+    'domestic',
+  );
+});
+
 test('selectFinanceNewsItems filters calendar noise, clickbait, and duplicate headlines', () => {
   const items = selectFinanceNewsItems(
     [
@@ -531,6 +553,85 @@ test('runMarketPush filters news already sent earlier the same day', async () =>
   assert.equal(writtenState.days['2026-04-01'].finance.length, 1);
 });
 
+test('runMarketPush removes duplicate stories between ai and finance sections', async () => {
+  const result = await runMarketPush({
+    env: {
+      TWELVE_DATA_API_KEY: 'demo-key',
+      QQ_BOT_MODE: 'onebot',
+      ONEBOT_HTTP_URL: 'http://127.0.0.1:3000',
+      ONEBOT_MESSAGE_TYPE: 'group',
+      ONEBOT_TARGET_ID: '123456',
+    },
+    generatedAt: new Date('2026-04-01T18:25:00+08:00'),
+    quoteFetcher: async () => ({
+      symbol: 'XAU/USD',
+      price: 3123.56,
+      percentChange: 1.23,
+      exchange: '',
+      sourceTimestamp: '2026-04-01 18:25:00',
+    }),
+    newsFetcher: async (category) =>
+      category === 'tech-ai'
+        ? {
+            category,
+            title: 'AI',
+            error: '',
+            items: [
+              {
+                title: 'OpenAI 扩展 Responses API，为自主智能体提供基础设施',
+                summary:
+                  'OpenAI 扩展 Responses API，为自主智能体提供基础设施。',
+                publishedAt: new Date('2026-04-01T17:50:00+08:00'),
+                fingerprint:
+                  'OpenAI 扩展 Responses API，为自主智能体提供基础设施',
+              },
+            ],
+          }
+        : {
+            category,
+            title: '财经',
+            error: '',
+            items: [
+              {
+                title: 'OpenAI 扩展 Responses API，为自主智能体提供基础设施',
+                summary:
+                  'OpenAI 扩展 Responses API 带动相关 AI 基础设施概念走强。',
+                publishedAt: new Date('2026-04-01T18:00:00+08:00'),
+                fingerprint:
+                  'OpenAI 扩展 Responses API，为自主智能体提供基础设施',
+              },
+              {
+                title: 'A股成交额突破1万亿元',
+                summary: 'A股成交额突破1万亿元',
+                publishedAt: new Date('2026-04-01T18:05:00+08:00'),
+              },
+            ],
+          },
+    newsStateStore: {
+      read: async () => ({
+        version: 1,
+        days: {},
+      }),
+      write: async () => {},
+    },
+    messagePusher: async (_config, messages) => ({
+      dryRun: false,
+      messages,
+    }),
+  });
+
+  const financeSection = result.newsSections.find(
+    (section) => section.category === 'finance',
+  );
+
+  assert.equal(financeSection.items.length, 1);
+  assert.match(financeSection.items[0].summary, /A股成交额突破1万亿元/u);
+  assert.doesNotMatch(
+    result.message,
+    /OpenAI 扩展 Responses API 带动相关 AI 基础设施概念走强/u,
+  );
+});
+
 test('generateTechAiNewsWithLlm uses Gemini as primary provider', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
@@ -598,6 +699,84 @@ test('generateTechAiNewsWithLlm uses Gemini as primary provider', async () => {
     assert.match(items[0].summary, /Responses API/u);
     assert.match(items[0].fingerprint, /responsesapi/u);
     assert.match(items[1].summary, /Claude Agent/u);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateTechAiNewsWithLlm keeps 7 international and 3 domestic items when candidates are sufficient', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    internationalItems: [
+                      {
+                        candidateId: 'c01',
+                        summary: 'OpenAI 发布新能力，强化智能体基础设施。',
+                      },
+                    ],
+                    domesticItems: [
+                      {
+                        candidateId: 'c08',
+                        summary: '阿里云发布通义千问新模型，强化企业智能体。',
+                      },
+                    ],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  const candidates = [
+    'OpenAI 发布新能力，强化智能体基础设施',
+    'Anthropic 发布新模型，强化代码与智能体能力',
+    'Google 推出新一代多模态模型',
+    'Meta 发布开源推理模型',
+    'NVIDIA 扩展 AI 基础设施布局',
+    'Microsoft 扩展 Copilot 企业能力',
+    'Apple 推进 AI 系统级能力',
+    '阿里云发布通义千问新模型，强化企业智能体',
+    '百度发布文心新能力，推进智能体落地',
+    '腾讯升级混元模型并开放企业接口',
+  ].map((title, index) => ({
+    candidateId: `c${String(index + 1).padStart(2, '0')}`,
+    item: {
+      title,
+      summary: `${title}。`,
+      source: '某媒体',
+      publishedAt: new Date(`2026-04-01T0${Math.min(index, 9)}:00:00+08:00`),
+    },
+  }));
+
+  try {
+    const items = await generateTechAiNewsWithLlm(candidates, {
+      techAiNewsLimit: 10,
+      newsSummaryMaxLength: 48,
+      aiNewsLlmProvider: 'gemini',
+      aiNewsLlmFallbackProvider: 'deepseek',
+      geminiApiKey: 'gemini-key',
+      deepseekApiKey: 'deepseek-key',
+      aiNewsGeminiModel: 'gemini-2.5-flash',
+      aiNewsDeepseekModel: 'deepseek-chat',
+      aiNewsLlmTimeoutMs: 30000,
+    });
+
+    assert.equal(items.length, 10);
+    assert.equal(
+      items.filter((item) => item.region === 'international').length,
+      7,
+    );
+    assert.equal(items.filter((item) => item.region === 'domestic').length, 3);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -679,6 +858,75 @@ test('generateTechAiNewsWithLlm falls back to DeepSeek when Gemini fails', async
   } finally {
     globalThis.fetch = originalFetch;
     console.warn = originalWarn;
+  }
+});
+
+test('generateFinanceNewsWithLlm rewrites finance candidates into concise market summaries', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    items: [
+                      {
+                        candidateId: 'c01',
+                        summary: 'A股成交额突破1万亿元，市场交投继续放量。',
+                      },
+                    ],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const items = await generateFinanceNewsWithLlm(
+      [
+        {
+          candidateId: 'c01',
+          item: {
+            title: 'A股成交额突破1万亿元',
+            summary: 'A股成交额突破1万亿元',
+            source: '第一财经',
+            publishedAt: new Date('2026-04-01T14:00:00+08:00'),
+          },
+        },
+        {
+          candidateId: 'c02',
+          item: {
+            title: '国际油价走低 布伦特原油期货跌近1%',
+            summary: '国际油价走低 布伦特原油期货跌近1%',
+            source: '36氪快讯',
+            publishedAt: new Date('2026-04-01T14:05:00+08:00'),
+          },
+        },
+      ],
+      {
+        financeNewsLimit: 10,
+        newsSummaryMaxLength: 48,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-chat',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(items.length, 1);
+    assert.match(items[0].summary, /市场交投继续放量/u);
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });
 
