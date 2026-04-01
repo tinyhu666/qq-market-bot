@@ -145,7 +145,7 @@ typings/
 ### 支持的推送模式
 
 - `OneBot v11`：适合 `NapCat`、`go-cqhttp` 一类本地 QQ 机器人，稳定支持主动定时推送。
-- `QQ 官方机器人 OpenAPI`：保留接入能力，但请注意官方文档在 `2026-03-12` 的“发送消息”页里仍提示“主动推送能力于 `2025-04-21` 起不再提供”，群/单聊主动消息也有严格频控，所以如果你要做每天两次的稳定播报，更推荐 `OneBot`。
+- `QQ 官方机器人 OpenAPI`：保留接入能力，但请注意官方文档在 `2026-03-12` 的“发送消息”页里仍提示“主动推送能力于 `2025-04-21` 起不再提供”，群/单聊主动消息也有严格频控，所以如果你要做每天三次的稳定播报，更推荐 `OneBot`。
 
 当前仓库里的本地忽略文件 [qq-market-bot.env](/Users/hurui/Downloads/stock/miniprogram/scripts/qq-market-bot.env) 已经切到 `OneBot` 方案，并移除了之前的 QQ 官方机器人凭证。
 
@@ -155,7 +155,7 @@ typings/
 - 额外补充 `36氪` 文章 feed，优先填充真正带 `AI/模型/智能体/推理/芯片/算力` 关键词的条目
 - 财经新闻优先使用 `第一财经` 资讯页与 `36氪快讯` 的标题型源；如果结果不足，再回退到东方财富妙享 `skill` 或公开 `7*24` 快讯接口
 
-AI 新闻会在四个中文源合并后再做一层标题过滤、相关性排序和近似去重，优先保留 AI、模型、智能体、推理、开源模型、芯片、算力和 AI 基础设施动态，并尽量排除政务、教育、手机发布、周年庆和直播活动类噪音标题。对单条 feed 中把两条新闻拼进一个标题的情况，脚本会自动截取首条有效 AI 主题，避免重复和串题。
+AI 新闻会先在四个中文源合并后做一层标题过滤、相关性排序和近似去重，再把候选条目交给大模型做最终筛选和一句话总结。默认主模型是 `Gemini`，失败后会自动回退到 `DeepSeek`；如果两者都没配置或都失败，则继续回退到本地规则筛选，保证播报不中断。对单条 feed 中把两条新闻拼进一个标题的情况，脚本会自动截取首条有效 AI 主题，避免重复和串题。
 
 财经新闻会优先走标题型数据源，减少“正文残句”和公告腔。脚本会优先过滤经济日历、多时间点提醒、基建/活动类弱相关快讯与 clickbait 标题，并优先保留股市、利率、汇率、财报、公司与政策类市场动态。
 
@@ -185,6 +185,14 @@ cp scripts/qq-market-bot.env.example scripts/qq-market-bot.env
   - `MARKET_FINANCE_NEWS_LIMIT`，默认 `10`
   - `MARKET_NEWS_SUMMARY_MAX_LENGTH`，默认 `48`
   - `MARKET_MESSAGE_MAX_LENGTH`，默认 `1600`
+  - `MARKET_AI_LLM_ENABLED`，可选；默认 `1`
+  - `MARKET_AI_LLM_PROVIDER`，可选；默认 `gemini`
+  - `MARKET_AI_LLM_FALLBACK_PROVIDER`，可选；默认 `deepseek`
+  - `MARKET_AI_LLM_TIMEOUT_MS`，可选；默认 `45000`
+  - `GEMINI_MODEL`，可选；默认 `gemini-2.5-flash`
+  - `GEMINI_API_KEY`，可选；配置后作为 AI Top 10 的默认大模型
+  - `DEEPSEEK_MODEL`，可选；默认 `deepseek-chat`
+  - `DEEPSEEK_API_KEY`，可选；配置后作为 AI Top 10 的备用大模型
   - `MARKET_DAILY_NEWS_DEDUPE`，可选；默认 `1`，设为 `0` 可关闭“当天三次推送不重复”逻辑
   - `MARKET_NEWS_STATE_FILE`，可选；默认写入 `scripts/qq-market-bot-news-state.json`
   - `EASTMONEY_APIKEY`，可选；填写后开启东方财富妙享 `skill`

@@ -114,3 +114,15 @@ change111 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/ta
 change112 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot.mjs | 操作:Modify | 影响:线上跨时段新闻去重 | 说明:将支持当天新闻状态记忆的最新脚本同步到服务器运行目录，用于拦截 09:25/13:25/18:25 三次推送中的重复新闻 | 关联:task024
 change113 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot-news-state.json | 操作:Add | 影响:线上新闻去重状态 | 说明:首次真实推送后生成当天新闻指纹状态文件，记录已发送的 AI/财经新闻，供同日后续推送过滤重复内容 | 关联:task024
 change114 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/logs/qq-market-bot.log | 操作:Modify | 影响:线上验证日志 | 说明:完成一次真实推送后立刻执行 dry-run，确认财经区已显示“今天暂无新的新闻。”，验证跨时段去重在服务器端生效 | 关联:task024
+change115 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI Top 10 生成链路 | 说明:新增 Gemini 主调用、DeepSeek 备用回退和本地规则兜底，并将 Gemini 默认超时调到 45 秒，同时补上模型返回条数不足时自动回填到 Top 10 的逻辑 | 关联:task025
+change116 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充 Gemini 主调用、DeepSeek 回退，以及模型少返回时自动补齐剩余 AI 条目的测试 | 关联:task025
+change117 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.env.example | 操作:Modify | 影响:示例配置 | 说明:新增 AI 新闻 LLM 的主备 provider、Gemini/DeepSeek 模型与 API key 配置项，并同步默认 45 秒超时 | 关联:task025
+change118 日期:2026-04-01 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充 AI Top 10 由大模型筛选与总结、Gemini 主 DeepSeek 备的配置说明，并更新每天三次播报与超时默认值文档 | 关联:task025
+change119 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:把 AI 新闻改为大模型筛选与中文总结，并明确 Gemini/DeepSeek 鉴权、额度、超时异常时的回退验收标准 | 关联:task025
+change120 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:新增 AI Top 10 的大模型化优先级，并记录 Gemini / DeepSeek 回退和超时风险 | 关联:task025
+change121 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task025，记录 AI 新闻改由大模型处理及服务器主备 key 配置要求 | 关联:task025
+change122 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot.env | 操作:Modify | 影响:线上 AI 新闻模型配置 | 说明:将服务器运行配置更新为 Gemini 主 provider、DeepSeek 备用 provider，并写入对应模型、API key 与 45 秒超时设置 | 关联:task025
+change123 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot.mjs | 操作:Modify | 影响:线上 AI Top 10 生成链路 | 说明:同步带有 Gemini/DeepSeek 主备与 Top 10 自动补齐逻辑的最新脚本到服务器运行目录 | 关联:task025
+change124 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:线上验证脚本 | 说明:同步新的 AI 新闻 LLM 测试到服务器，并使用独立 Node 运行时完成远端测试通过 | 关联:task025
+change125 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/README.md | 操作:Modify | 影响:服务器部署目录说明 | 说明:同步最新 README 到服务器目录，保持线上运维目录对 LLM 主备配置与默认超时的说明一致 | 关联:task025
+change126 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot-run.sh --dry-run | 操作:Modify | 影响:线上 dry-run 验证 | 说明:验证服务器配置已生效，远端 dry-run 成功输出 AI Top 10 与财经 Top 10，确认不会再出现 AI Top 6 的回归 | 关联:task025

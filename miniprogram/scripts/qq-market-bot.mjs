@@ -13,6 +13,10 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const QQ_ACCESS_TOKEN_URL = 'https://bots.qq.com/app/getAppAccessToken';
 const QQ_OFFICIAL_API_BASE_URL = 'https://api.sgroup.qq.com';
 const TWELVE_DATA_QUOTE_URL = 'https://api.twelvedata.com/quote';
+const GEMINI_GENERATE_CONTENT_BASE_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/';
+const DEEPSEEK_CHAT_COMPLETIONS_URL =
+  'https://api.deepseek.com/chat/completions';
 const SINA_QUOTE_URL = 'https://hq.sinajs.cn/list=';
 const CNBC_QUOTE_PAGE_URL = 'https://www.cnbc.com/quotes/';
 const STOOQ_QUOTE_URL = 'https://stooq.com/q/l/';
@@ -38,6 +42,11 @@ const DEFAULT_NEWS_STATE_FILE = resolve(
 );
 const DAILY_NEWS_STATE_VERSION = 1;
 const DAILY_NEWS_STATE_RETENTION_DAYS = 7;
+const DEFAULT_AI_NEWS_LLM_TIMEOUT_MS = 45000;
+const DEFAULT_AI_NEWS_LLM_PRIMARY_PROVIDER = 'gemini';
+const DEFAULT_AI_NEWS_LLM_FALLBACK_PROVIDER = 'deepseek';
+const DEFAULT_AI_NEWS_GEMINI_MODEL = 'gemini-2.5-flash';
+const DEFAULT_AI_NEWS_DEEPSEEK_MODEL = 'deepseek-chat';
 const MESSAGE_SECTION_SEPARATOR = '\n----------------\n';
 const NEWS_DUPLICATE_SIMILARITY_THRESHOLD = 0.88;
 const DEFAULT_REQUEST_HEADERS = {
@@ -360,6 +369,24 @@ function toPositiveInteger(value, fallback) {
     return parsed;
   }
   return fallback;
+}
+
+function normalizeAiNewsLlmProvider(value, fallback) {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
+
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (normalized !== 'gemini' && normalized !== 'deepseek') {
+    throw new Error(
+      `MARKET_AI_LLM_PROVIDER=${value} 无效，仅支持 gemini 或 deepseek`,
+    );
+  }
+
+  return normalized;
 }
 
 function formatTimestamp(date, timeZone) {
@@ -717,6 +744,10 @@ function normalizeFinanceHeadline(text) {
 }
 
 function buildNewsFingerprint(item, category) {
+  if (item?.fingerprint) {
+    return normalizeNewsDuplicateText(item.fingerprint);
+  }
+
   const primaryText =
     category === 'finance'
       ? normalizeFinanceHeadline(item.title || item.summary || '')
@@ -948,7 +979,11 @@ async function fetchJson(url, options = {}) {
 
   if (!response.ok) {
     const message =
-      data?.message || data?.msg || data?.error || `HTTP ${response.status}`;
+      data?.message ||
+      data?.msg ||
+      data?.error?.message ||
+      data?.error ||
+      `HTTP ${response.status}`;
     throw new Error(`请求失败：${message}`);
   }
 
@@ -1447,7 +1482,9 @@ function buildTechAiNewsItem(item, maxLength) {
     title: cleanedTitle || item.title,
     summary:
       summary && !isLowQualitySummaryLine(summary) ? summary : fallbackSummary,
+    source: item.source || '',
     publishedAt: item.publishedAt,
+    fingerprint: item.fingerprint || '',
   };
 }
 
@@ -1538,6 +1575,346 @@ export function selectTechAiNewsItems(
     .map((entry) =>
       buildTechAiNewsItem(entry.item, config.newsSummaryMaxLength),
     );
+}
+
+function getDailySeenFingerprints(state, category, config, generatedAt) {
+  const normalizedState = normalizeDailyNewsState(state);
+  const dateKey = formatDateKey(generatedAt, config.timeZone);
+  return [...((normalizedState.days[dateKey] || {})[category] || [])];
+}
+
+function filterPreviouslySentNewsItems(
+  items,
+  category,
+  state,
+  config,
+  generatedAt = new Date(),
+) {
+  const seenFingerprints = getDailySeenFingerprints(
+    state,
+    category,
+    config,
+    generatedAt,
+  );
+
+  if (seenFingerprints.length === 0) {
+    return {
+      items,
+      filteredCount: 0,
+    };
+  }
+
+  const unseenItems = [];
+  let filteredCount = 0;
+
+  for (const item of items) {
+    const fingerprint = buildNewsFingerprint(item, category);
+    if (shouldSkipNewsByFingerprint(fingerprint, seenFingerprints)) {
+      filteredCount += 1;
+      continue;
+    }
+
+    unseenItems.push({
+      ...item,
+      fingerprint: item.fingerprint || fingerprint,
+    });
+  }
+
+  return {
+    items: unseenItems,
+    filteredCount,
+  };
+}
+
+function buildAiNewsLlmCandidateList(items) {
+  return items.map((item, index) => ({
+    candidateId: `c${String(index + 1).padStart(2, '0')}`,
+    item,
+  }));
+}
+
+function buildAiNewsLlmPrompt(candidates, limit) {
+  const candidateLines = candidates.map(({ candidateId, item }) => {
+    const publishedAt =
+      item.publishedAt instanceof Date &&
+      !Number.isNaN(item.publishedAt.valueOf())
+        ? item.publishedAt.toISOString()
+        : '';
+
+    return [
+      `${candidateId}`,
+      item.source || '未知来源',
+      publishedAt || '未知时间',
+      item.title || item.summary || '',
+      item.summary || item.title || '',
+    ].join(' | ');
+  });
+
+  return [
+    `你是一名中文科技媒体编辑，请从候选列表中选出最值得播报的 AI 行业新闻，最多 ${limit} 条。`,
+    '只允许根据候选列表挑选，不能编造新事实，不能引入列表外事件。',
+    '优先选择与大模型、智能体、推理、芯片、算力、AI 基础设施、重要产品发布、企业 AI 战略、重大融资并购、监管和平台能力变化相关的内容。',
+    '排除纯活动预告、泛营销、弱相关消费电子、校园/政务/直播类噪音内容。',
+    '请为每条输出一句中文总结，要求：完整、客观、18-36 个汉字优先、不带链接/来源/序号/引号。',
+    `如果候选数量足够，请尽量返回 ${limit} 条，不要无故少于这个数量。`,
+    '必须严格输出 JSON，对象格式为 {"items":[{"candidateId":"c01","summary":"..." }]}。',
+    '候选列表：',
+    ...candidateLines,
+  ].join('\n');
+}
+
+function parseJsonTextResponse(rawText, providerLabel) {
+  const text = String(rawText || '').trim();
+  const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/iu);
+  const normalized = (fencedMatch ? fencedMatch[1] : text).trim();
+
+  try {
+    return JSON.parse(normalized);
+  } catch (error) {
+    throw new Error(
+      `${providerLabel} 返回了不可解析的 JSON：${normalized.slice(0, 200)}`,
+    );
+  }
+}
+
+function normalizeAiNewsLlmItems(payload, candidates, config) {
+  const candidateMap = new Map(
+    candidates.map((entry) => [entry.candidateId, entry.item]),
+  );
+  const selectedItems = [];
+  const seenCandidateIds = new Set();
+  const seenFingerprints = [];
+
+  for (const rawItem of payload?.items || []) {
+    const candidateId = String(rawItem?.candidateId || '').trim();
+    if (!candidateId || seenCandidateIds.has(candidateId)) {
+      continue;
+    }
+
+    const candidateItem = candidateMap.get(candidateId);
+    if (!candidateItem) {
+      continue;
+    }
+
+    const generatedSummary = normalizeSummaryLine(
+      normalizeWhitespace(stripHtml(String(rawItem?.summary || ''))),
+      config.newsSummaryMaxLength,
+    );
+    const fingerprint = buildNewsFingerprint(candidateItem, 'tech-ai');
+    const normalizedItem = buildTechAiNewsItem(
+      {
+        ...candidateItem,
+        summary:
+          generatedSummary ||
+          candidateItem.summary ||
+          candidateItem.title ||
+          '',
+        fingerprint,
+      },
+      config.newsSummaryMaxLength,
+    );
+
+    const normalizedFingerprint = buildNewsFingerprint(
+      normalizedItem,
+      'tech-ai',
+    );
+    if (shouldSkipNewsByFingerprint(normalizedFingerprint, seenFingerprints)) {
+      continue;
+    }
+
+    selectedItems.push(normalizedItem);
+    seenCandidateIds.add(candidateId);
+    if (normalizedFingerprint) {
+      seenFingerprints.push(normalizedFingerprint);
+    }
+
+    if (selectedItems.length >= config.techAiNewsLimit) {
+      break;
+    }
+  }
+
+  if (selectedItems.length < config.techAiNewsLimit) {
+    for (const entry of candidates) {
+      if (seenCandidateIds.has(entry.candidateId)) {
+        continue;
+      }
+
+      const fallbackFingerprint = buildNewsFingerprint(entry.item, 'tech-ai');
+      if (shouldSkipNewsByFingerprint(fallbackFingerprint, seenFingerprints)) {
+        continue;
+      }
+
+      selectedItems.push(
+        buildTechAiNewsItem(
+          {
+            ...entry.item,
+            fingerprint: fallbackFingerprint,
+          },
+          config.newsSummaryMaxLength,
+        ),
+      );
+      seenCandidateIds.add(entry.candidateId);
+      if (fallbackFingerprint) {
+        seenFingerprints.push(fallbackFingerprint);
+      }
+
+      if (selectedItems.length >= config.techAiNewsLimit) {
+        break;
+      }
+    }
+  }
+
+  return selectedItems;
+}
+
+async function generateTechAiNewsWithGemini(candidates, config) {
+  const prompt = buildAiNewsLlmPrompt(candidates, config.techAiNewsLimit);
+  const url = `${GEMINI_GENERATE_CONTENT_BASE_URL}${encodeURIComponent(
+    config.aiNewsGeminiModel,
+  )}:generateContent`;
+  const response = await fetchJson(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': config.geminiApiKey,
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: prompt,
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: 'application/json',
+        responseJsonSchema: {
+          type: 'object',
+          properties: {
+            items: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  candidateId: {
+                    type: 'string',
+                  },
+                  summary: {
+                    type: 'string',
+                  },
+                },
+                required: ['candidateId', 'summary'],
+              },
+            },
+          },
+          required: ['items'],
+        },
+      },
+    }),
+    signal: AbortSignal.timeout(config.aiNewsLlmTimeoutMs),
+  });
+  const text = (response?.candidates || [])
+    .flatMap((candidate) => candidate?.content?.parts || [])
+    .map((part) => part?.text || '')
+    .join('')
+    .trim();
+
+  if (!text) {
+    throw new Error('Gemini 未返回可用的 AI 新闻结果');
+  }
+
+  return normalizeAiNewsLlmItems(
+    parseJsonTextResponse(text, 'Gemini'),
+    candidates,
+    config,
+  );
+}
+
+async function generateTechAiNewsWithDeepSeek(candidates, config) {
+  const prompt = buildAiNewsLlmPrompt(candidates, config.techAiNewsLimit);
+  const response = await fetchJson(DEEPSEEK_CHAT_COMPLETIONS_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.deepseekApiKey}`,
+    },
+    body: JSON.stringify({
+      model: config.aiNewsDeepseekModel,
+      temperature: 0.2,
+      max_tokens: 1400,
+      response_format: {
+        type: 'json_object',
+      },
+      messages: [
+        {
+          role: 'system',
+          content:
+            '你是中文 AI 新闻编辑，只能基于候选列表挑选新闻，必须返回 JSON。',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    }),
+    signal: AbortSignal.timeout(config.aiNewsLlmTimeoutMs),
+  });
+  const text = response?.choices?.[0]?.message?.content || '';
+
+  if (!text.trim()) {
+    throw new Error('DeepSeek 未返回可用的 AI 新闻结果');
+  }
+
+  return normalizeAiNewsLlmItems(
+    parseJsonTextResponse(text, 'DeepSeek'),
+    candidates,
+    config,
+  );
+}
+
+function resolveAiNewsLlmProviders(config) {
+  const providers = [
+    config.aiNewsLlmProvider,
+    config.aiNewsLlmFallbackProvider,
+  ].filter(Boolean);
+
+  return [...new Set(providers)].filter((provider) =>
+    provider === 'gemini'
+      ? Boolean(config.geminiApiKey)
+      : Boolean(config.deepseekApiKey),
+  );
+}
+
+export async function generateTechAiNewsWithLlm(candidates, config) {
+  const providerOrder = resolveAiNewsLlmProviders(config);
+  let lastError = null;
+
+  for (const provider of providerOrder) {
+    try {
+      if (provider === 'gemini') {
+        return await generateTechAiNewsWithGemini(candidates, config);
+      }
+
+      if (provider === 'deepseek') {
+        return await generateTechAiNewsWithDeepSeek(candidates, config);
+      }
+    } catch (error) {
+      lastError = error;
+      console.warn(
+        `[qq-market-bot] AI 新闻 LLM ${provider} 调用失败，准备尝试下一个提供方：${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  throw (
+    lastError || new Error('未配置可用的 AI 新闻 LLM 提供方，请检查 API key')
+  );
 }
 
 function buildEastmoneyFinanceNewsItem(item, maxLength) {
@@ -1647,7 +2024,7 @@ async function fetchTechAiNewsCategory(config) {
     }),
   );
 
-  const items = selectTechAiNewsItems(
+  const candidateItems = selectTechAiNewsItems(
     feedResults
       .filter((result) => result.status === 'fulfilled')
       .flatMap((result) => result.value),
@@ -1655,6 +2032,42 @@ async function fetchTechAiNewsCategory(config) {
     new Date(),
     candidateLimit,
   );
+  const unseenCandidateResult =
+    config.dailyNewsDedupEnabled && config.currentDailyNewsState
+      ? filterPreviouslySentNewsItems(
+          candidateItems,
+          category,
+          config.currentDailyNewsState,
+          config,
+          config.generatedAtForNews || new Date(),
+        )
+      : {
+          items: candidateItems,
+          filteredCount: 0,
+        };
+  let items = unseenCandidateResult.items.slice(0, config.techAiNewsLimit);
+
+  if (
+    config.aiNewsLlmEnabled &&
+    resolveAiNewsLlmProviders(config).length > 0 &&
+    unseenCandidateResult.items.length > 0
+  ) {
+    try {
+      const llmCandidates = buildAiNewsLlmCandidateList(
+        unseenCandidateResult.items,
+      );
+      const llmItems = await generateTechAiNewsWithLlm(llmCandidates, config);
+      if (llmItems.length > 0) {
+        items = llmItems;
+      }
+    } catch (error) {
+      console.warn(
+        `[qq-market-bot] AI 新闻 LLM 汇总失败，已回退到规则筛选：${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
 
   if (items.length === 0) {
     const errors = feedResults
@@ -1676,6 +2089,10 @@ async function fetchTechAiNewsCategory(config) {
     category,
     title: NEWS_CATEGORY_CONFIG[category].title,
     items,
+    emptyText:
+      items.length === 0 && unseenCandidateResult.filteredCount > 0
+        ? '今天暂无新的新闻。'
+        : '',
     error: '',
   };
 }
@@ -1930,6 +2347,24 @@ export function readConfig(
     timeZone,
     dryRun,
     dailyNewsDedupEnabled: env.MARKET_DAILY_NEWS_DEDUPE !== '0',
+    aiNewsLlmEnabled: env.MARKET_AI_LLM_ENABLED !== '0',
+    aiNewsLlmProvider: normalizeAiNewsLlmProvider(
+      env.MARKET_AI_LLM_PROVIDER,
+      DEFAULT_AI_NEWS_LLM_PRIMARY_PROVIDER,
+    ),
+    aiNewsLlmFallbackProvider: normalizeAiNewsLlmProvider(
+      env.MARKET_AI_LLM_FALLBACK_PROVIDER,
+      DEFAULT_AI_NEWS_LLM_FALLBACK_PROVIDER,
+    ),
+    geminiApiKey: env.GEMINI_API_KEY?.trim() || '',
+    deepseekApiKey: env.DEEPSEEK_API_KEY?.trim() || '',
+    aiNewsGeminiModel: env.GEMINI_MODEL?.trim() || DEFAULT_AI_NEWS_GEMINI_MODEL,
+    aiNewsDeepseekModel:
+      env.DEEPSEEK_MODEL?.trim() || DEFAULT_AI_NEWS_DEEPSEEK_MODEL,
+    aiNewsLlmTimeoutMs: toPositiveInteger(
+      env.MARKET_AI_LLM_TIMEOUT_MS,
+      DEFAULT_AI_NEWS_LLM_TIMEOUT_MS,
+    ),
     newsStateFile: resolve(
       process.cwd(),
       (env.MARKET_NEWS_STATE_FILE || DEFAULT_NEWS_STATE_FILE).trim(),
@@ -2773,10 +3208,6 @@ export async function runMarketPush({
       allowMissingTarget: isDryRun,
     },
   );
-  const [quotes, rawNewsSections] = await Promise.all([
-    collectQuotes(config, quoteFetcher),
-    collectNews(config, newsFetcher),
-  ]);
   const effectiveNewsStateStore =
     config.dailyNewsDedupEnabled && newsStateStore === null
       ? createDailyNewsStateStore(config)
@@ -2785,11 +3216,20 @@ export async function runMarketPush({
     config.dailyNewsDedupEnabled && effectiveNewsStateStore?.read
       ? await effectiveNewsStateStore.read()
       : createEmptyDailyNewsState();
+  const runtimeConfig = {
+    ...config,
+    currentDailyNewsState: currentNewsState,
+    generatedAtForNews: generatedAt,
+  };
+  const [quotes, rawNewsSections] = await Promise.all([
+    collectQuotes(runtimeConfig, quoteFetcher),
+    collectNews(runtimeConfig, newsFetcher),
+  ]);
   const newsSections = config.dailyNewsDedupEnabled
     ? filterDailyDuplicateNews(
         rawNewsSections,
         currentNewsState,
-        config,
+        runtimeConfig,
         generatedAt,
       )
     : rawNewsSections;
@@ -2801,7 +3241,7 @@ export async function runMarketPush({
     config.messageMaxLength,
   );
   const message = messages.join(MESSAGE_SECTION_SEPARATOR);
-  const result = await messagePusher(config, messages);
+  const result = await messagePusher(runtimeConfig, messages);
 
   if (
     config.dailyNewsDedupEnabled &&
@@ -2811,14 +3251,14 @@ export async function runMarketPush({
     const nextNewsState = mergeDailyNewsState(
       currentNewsState,
       newsSections,
-      config,
+      runtimeConfig,
       generatedAt,
     );
     await effectiveNewsStateStore.write(nextNewsState);
   }
 
   return {
-    config,
+    config: runtimeConfig,
     generatedAt,
     quotes,
     newsSections,
@@ -2856,6 +3296,18 @@ function printHelp() {
 必填环境变量：
   TWELVE_DATA_API_KEY
   QQ_BOT_MODE=onebot | qq-official
+
+AI 新闻 LLM（可选，默认 Gemini，失败后回退 DeepSeek）：
+  MARKET_AI_LLM_ENABLED=1 | 0
+  MARKET_AI_LLM_PROVIDER=gemini | deepseek
+  MARKET_AI_LLM_FALLBACK_PROVIDER=deepseek | gemini
+  GEMINI_API_KEY
+  GEMINI_MODEL
+  DEEPSEEK_API_KEY
+  DEEPSEEK_MODEL
+  MARKET_AI_LLM_TIMEOUT_MS
+  MARKET_DAILY_NEWS_DEDUPE=1 | 0
+  MARKET_NEWS_STATE_FILE=/abs/path/news-state.json
 
 OneBot 模式：
   ONEBOT_HTTP_URL 或 ONEBOT_WS_URL（二选一；同时存在时优先 HTTP）

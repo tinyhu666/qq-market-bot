@@ -5,6 +5,7 @@ import {
   buildReportMessages,
   fetchQuote,
   formatReport,
+  generateTechAiNewsWithLlm,
   normalizeSummaryLine,
   readConfig,
   runMarketPush,
@@ -528,6 +529,157 @@ test('runMarketPush filters news already sent earlier the same day', async () =>
   assert.ok(writtenState);
   assert.equal(writtenState.days['2026-04-01']['tech-ai'].length, 2);
   assert.equal(writtenState.days['2026-04-01'].finance.length, 1);
+});
+
+test('generateTechAiNewsWithLlm uses Gemini as primary provider', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    items: [
+                      {
+                        candidateId: 'c01',
+                        summary:
+                          'OpenAI 扩展 Responses API，强化自主智能体基础设施能力。',
+                      },
+                    ],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const items = await generateTechAiNewsWithLlm(
+      [
+        {
+          candidateId: 'c01',
+          item: {
+            title: 'OpenAI 扩展 Responses API，为自主智能体提供基础设施',
+            summary: 'OpenAI 扩展 Responses API，为自主智能体提供基础设施。',
+            source: '某媒体',
+            publishedAt: new Date('2026-04-01T09:00:00+08:00'),
+          },
+        },
+        {
+          candidateId: 'c02',
+          item: {
+            title: 'Anthropic 推出新一代 Claude Agent 工作流能力',
+            summary: 'Anthropic 推出新一代 Claude Agent 工作流能力。',
+            source: '另一家媒体',
+            publishedAt: new Date('2026-04-01T09:30:00+08:00'),
+          },
+        },
+      ],
+      {
+        techAiNewsLimit: 2,
+        newsSummaryMaxLength: 48,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-chat',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(items.length, 2);
+    assert.match(items[0].summary, /Responses API/u);
+    assert.match(items[0].fingerprint, /responsesapi/u);
+    assert.match(items[1].summary, /Claude Agent/u);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateTechAiNewsWithLlm falls back to DeepSeek when Gemini fails', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  let requestCount = 0;
+  globalThis.fetch = async (url) => {
+    requestCount += 1;
+    const requestUrl = String(url);
+
+    if (requestUrl.includes('generativelanguage.googleapis.com')) {
+      return {
+        ok: false,
+        text: async () =>
+          JSON.stringify({ error: { message: 'quota exceeded' } }),
+      };
+    }
+
+    if (requestUrl.includes('api.deepseek.com/chat/completions')) {
+      return {
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    items: [
+                      {
+                        candidateId: 'c01',
+                        summary:
+                          'Anthropic 发布新一代 Claude 模型，强化代码与智能体能力。',
+                      },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }),
+      };
+    }
+
+    throw new Error(`unexpected url: ${requestUrl}`);
+  };
+  console.warn = () => {};
+
+  try {
+    const items = await generateTechAiNewsWithLlm(
+      [
+        {
+          candidateId: 'c01',
+          item: {
+            title: 'Anthropic 发布新一代 Claude 模型，强化代码与智能体能力',
+            summary: 'Anthropic 发布新一代 Claude 模型，强化代码与智能体能力。',
+            source: '某媒体',
+            publishedAt: new Date('2026-04-01T10:00:00+08:00'),
+          },
+        },
+      ],
+      {
+        techAiNewsLimit: 10,
+        newsSummaryMaxLength: 48,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-chat',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(requestCount, 2);
+    assert.equal(items.length, 1);
+    assert.match(items[0].summary, /Claude 模型/u);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+  }
 });
 
 test('fetchQuote reads NDX/SPX from CNBC quote pages', async () => {
