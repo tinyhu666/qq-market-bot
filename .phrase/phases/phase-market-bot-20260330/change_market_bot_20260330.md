@@ -104,3 +104,13 @@ change101 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq
 change102 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:线上验证脚本 | 说明:同步新的 CNBC/Stooq 单元测试到服务器，并使用独立 Node 运行时完成远端测试通过 | 关联:task023
 change103 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/README.md | 操作:Modify | 影响:服务器部署目录说明 | 说明:同步最新 README 到服务器目录，保持线上目录中的运维说明与仓库现状一致 | 关联:task023
 change104 日期:2026-04-01 | 文件:服务器:crontab | 操作:Modify | 影响:定时执行 | 说明:确认服务器 cron 采用每天 09:25、13:25、18:25 执行包装脚本，并完成 dry-run 与真实推送验证 | 关联:task023
+change105 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:跨时段新闻去重 | 说明:新增按上海时区记录当天已发送新闻的状态文件读写，并在第二次、第三次推送前过滤当天已发过的 AI/财经条目 | 关联:task024
+change106 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充“上午已发过的新闻在当天后续推送里会被过滤，并在无新增时提示今天暂无新的新闻”的集成测试 | 关联:task024
+change107 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.env.example | 操作:Modify | 影响:示例配置 | 说明:补充 MARKET_DAILY_NEWS_DEDUPE 与 MARKET_NEWS_STATE_FILE 示例，明确默认开启当天三次推送不重复逻辑 | 关联:task024
+change108 日期:2026-04-01 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充当天三次推送去重规则、无新增新闻提示，以及新闻状态文件配置说明 | 关联:task024
+change109 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充按天去重、无新增提示和状态文件容错的验收要求 | 关联:task024
+change110 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:新增每天三次推送间新闻不重复的优先级要求与状态文件损坏风险记录 | 关联:task024
+change111 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task024，记录跨时段新闻去重需求与验证方式 | 关联:task024
+change112 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot.mjs | 操作:Modify | 影响:线上跨时段新闻去重 | 说明:将支持当天新闻状态记忆的最新脚本同步到服务器运行目录，用于拦截 09:25/13:25/18:25 三次推送中的重复新闻 | 关联:task024
+change113 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot-news-state.json | 操作:Add | 影响:线上新闻去重状态 | 说明:首次真实推送后生成当天新闻指纹状态文件，记录已发送的 AI/财经新闻，供同日后续推送过滤重复内容 | 关联:task024
+change114 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/logs/qq-market-bot.log | 操作:Modify | 影响:线上验证日志 | 说明:完成一次真实推送后立刻执行 dry-run，确认财经区已显示“今天暂无新的新闻。”，验证跨时段去重在服务器端生效 | 关联:task024

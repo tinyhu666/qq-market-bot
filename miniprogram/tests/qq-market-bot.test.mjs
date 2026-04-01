@@ -434,6 +434,102 @@ test('selectFinanceNewsItems filters calendar noise, clickbait, and duplicate he
   );
 });
 
+test('runMarketPush filters news already sent earlier the same day', async () => {
+  let storedState = {
+    version: 1,
+    days: {
+      '2026-04-01': {
+        'tech-ai': ['OpenAI 扩展 Responses API，为自主智能体提供基础设施'],
+        finance: ['A股成交额突破1万亿元'],
+      },
+    },
+  };
+  let writtenState = null;
+
+  const result = await runMarketPush({
+    env: {
+      TWELVE_DATA_API_KEY: 'demo-key',
+      QQ_BOT_MODE: 'onebot',
+      ONEBOT_HTTP_URL: 'http://127.0.0.1:3000',
+      ONEBOT_MESSAGE_TYPE: 'group',
+      ONEBOT_TARGET_ID: '123456',
+    },
+    generatedAt: new Date('2026-04-01T13:25:00+08:00'),
+    quoteFetcher: async () => ({
+      symbol: 'XAU/USD',
+      price: 3123.56,
+      percentChange: 1.23,
+      exchange: '',
+      sourceTimestamp: '2026-04-01 13:25:00',
+    }),
+    newsFetcher: async (category) =>
+      category === 'tech-ai'
+        ? {
+            category,
+            title: 'AI',
+            error: '',
+            items: [
+              {
+                title: 'OpenAI 扩展 Responses API，为自主智能体提供基础设施',
+                publishedAt: new Date('2026-04-01T12:30:00+08:00'),
+                summary:
+                  'OpenAI 扩展 Responses API，为自主智能体提供基础设施。',
+              },
+              {
+                title: 'Anthropic 发布新一代 Claude 模型，强化代码与智能体能力',
+                publishedAt: new Date('2026-04-01T13:00:00+08:00'),
+                summary:
+                  'Anthropic 发布新一代 Claude 模型，强化代码与智能体能力。',
+              },
+            ],
+          }
+        : {
+            category,
+            title: '财经',
+            error: '',
+            items: [
+              {
+                title: 'A股成交额突破1万亿元',
+                publishedAt: new Date('2026-04-01T12:45:00+08:00'),
+                summary: 'A股成交额突破1万亿元',
+              },
+            ],
+          },
+    newsStateStore: {
+      read: async () => storedState,
+      write: async (nextState) => {
+        writtenState = nextState;
+        storedState = nextState;
+      },
+    },
+    messagePusher: async (_config, messages) => ({
+      dryRun: false,
+      messages,
+    }),
+  });
+
+  const techSection = result.newsSections.find(
+    (section) => section.category === 'tech-ai',
+  );
+  const financeSection = result.newsSections.find(
+    (section) => section.category === 'finance',
+  );
+
+  assert.equal(techSection.items.length, 1);
+  assert.match(
+    techSection.items[0].summary,
+    /Anthropic 发布新一代 Claude 模型/u,
+  );
+  assert.equal(financeSection.items.length, 0);
+  assert.equal(financeSection.emptyText, '今天暂无新的新闻。');
+  assert.doesNotMatch(result.message, /OpenAI 扩展 Responses API/u);
+  assert.match(result.message, /Anthropic 发布新一代 Claude 模型/u);
+  assert.match(result.message, /今天暂无新的新闻。/u);
+  assert.ok(writtenState);
+  assert.equal(writtenState.days['2026-04-01']['tech-ai'].length, 2);
+  assert.equal(writtenState.days['2026-04-01'].finance.length, 1);
+});
+
 test('fetchQuote reads NDX/SPX from CNBC quote pages', async () => {
   const originalFetch = globalThis.fetch;
   const spxHtml = `

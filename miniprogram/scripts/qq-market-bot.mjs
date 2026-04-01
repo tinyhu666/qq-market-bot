@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 
 import { execFile } from 'node:child_process';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import WebSocket from 'ws';
 
 const execFileAsync = promisify(execFile);
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
 const QQ_ACCESS_TOKEN_URL = 'https://bots.qq.com/app/getAppAccessToken';
 const QQ_OFFICIAL_API_BASE_URL = 'https://api.sgroup.qq.com';
@@ -27,6 +31,13 @@ const DEFAULT_FINANCE_NEWS_LIMIT = 10;
 const DEFAULT_MESSAGE_MAX_LENGTH = 1600;
 const DEFAULT_NEWS_SUMMARY_MAX_LENGTH = 48;
 const DEFAULT_ONEBOT_WS_TIMEOUT_MS = 10000;
+const DEFAULT_DAILY_NEWS_FETCH_MULTIPLIER = 3;
+const DEFAULT_NEWS_STATE_FILE = resolve(
+  SCRIPT_DIR,
+  'qq-market-bot-news-state.json',
+);
+const DAILY_NEWS_STATE_VERSION = 1;
+const DAILY_NEWS_STATE_RETENTION_DAYS = 7;
 const MESSAGE_SECTION_SEPARATOR = '\n----------------\n';
 const NEWS_DUPLICATE_SIMILARITY_THRESHOLD = 0.88;
 const DEFAULT_REQUEST_HEADERS = {
@@ -365,6 +376,17 @@ function formatTimestamp(date, timeZone) {
   return formatter.format(date).replace(/\//g, '-');
 }
 
+function formatDateKey(date, timeZone) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+  return formatter.format(date);
+}
+
 function formatPrice(value, digits = null) {
   if (!Number.isFinite(value)) {
     return '--';
@@ -692,6 +714,208 @@ function normalizeFinanceHeadline(text) {
       .replace(/\s+\d+\s*(?:分钟|小时|天)前$/u, '')
       .trim(),
   );
+}
+
+function buildNewsFingerprint(item, category) {
+  const primaryText =
+    category === 'finance'
+      ? normalizeFinanceHeadline(item.title || item.summary || '')
+      : normalizeTechAiNewsTitle(item.title || item.summary || '');
+  const secondaryText =
+    category === 'finance'
+      ? normalizeFinanceHeadline(item.summary || '')
+      : normalizeTechAiNewsTitle(item.summary || '');
+
+  return normalizeNewsDuplicateText(primaryText || secondaryText || '');
+}
+
+function createEmptyDailyNewsState() {
+  return {
+    version: DAILY_NEWS_STATE_VERSION,
+    days: {},
+  };
+}
+
+function normalizeDailyNewsState(rawState) {
+  const days = {};
+  const sourceDays =
+    rawState && typeof rawState === 'object' && rawState.days
+      ? rawState.days
+      : {};
+
+  for (const [dateKey, categories] of Object.entries(sourceDays)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/u.test(dateKey)) {
+      continue;
+    }
+
+    const normalizedCategories = {};
+    for (const category of Object.keys(NEWS_CATEGORY_CONFIG)) {
+      const seenFingerprints = Array.isArray(categories?.[category])
+        ? categories[category]
+            .map((item) => normalizeNewsDuplicateText(item))
+            .filter(Boolean)
+        : [];
+
+      if (seenFingerprints.length > 0) {
+        normalizedCategories[category] = seenFingerprints;
+      }
+    }
+
+    days[dateKey] = normalizedCategories;
+  }
+
+  const keptDateKeys = Object.keys(days)
+    .sort()
+    .slice(-DAILY_NEWS_STATE_RETENTION_DAYS);
+  const prunedDays = {};
+  for (const dateKey of keptDateKeys) {
+    prunedDays[dateKey] = days[dateKey];
+  }
+
+  return {
+    version: DAILY_NEWS_STATE_VERSION,
+    days: prunedDays,
+  };
+}
+
+function shouldSkipNewsByFingerprint(fingerprint, seenFingerprints) {
+  if (!fingerprint) {
+    return false;
+  }
+
+  return seenFingerprints.some((seenFingerprint) =>
+    isLikelyDuplicateNewsText(fingerprint, seenFingerprint),
+  );
+}
+
+function limitForNewsCategory(category, config) {
+  return category === 'finance'
+    ? config.financeNewsLimit
+    : config.techAiNewsLimit;
+}
+
+export function filterDailyDuplicateNews(
+  newsSections,
+  state,
+  config,
+  generatedAt = new Date(),
+) {
+  const normalizedState = normalizeDailyNewsState(state);
+  const dateKey = formatDateKey(generatedAt, config.timeZone);
+
+  return newsSections.map((section) => {
+    const seenFingerprints = [
+      ...((normalizedState.days[dateKey] || {})[section.category] || []),
+    ];
+    const uniqueItems = [];
+
+    for (const item of section.items || []) {
+      const fingerprint = buildNewsFingerprint(item, section.category);
+      if (shouldSkipNewsByFingerprint(fingerprint, seenFingerprints)) {
+        continue;
+      }
+
+      uniqueItems.push(item);
+      if (fingerprint) {
+        seenFingerprints.push(fingerprint);
+      }
+    }
+
+    const limitedItems = uniqueItems.slice(
+      0,
+      limitForNewsCategory(section.category, config),
+    );
+
+    return {
+      ...section,
+      items: limitedItems,
+      emptyText:
+        section.items?.length > 0 && limitedItems.length === 0
+          ? '今天暂无新的新闻。'
+          : section.emptyText || '',
+    };
+  });
+}
+
+export function mergeDailyNewsState(
+  state,
+  newsSections,
+  config,
+  generatedAt = new Date(),
+) {
+  const normalizedState = normalizeDailyNewsState(state);
+  const dateKey = formatDateKey(generatedAt, config.timeZone);
+  const dayState = {
+    ...(normalizedState.days[dateKey] || {}),
+  };
+
+  for (const section of newsSections) {
+    const seenFingerprints = [...(dayState[section.category] || [])];
+
+    for (const item of section.items || []) {
+      const fingerprint = buildNewsFingerprint(item, section.category);
+      if (
+        fingerprint &&
+        !shouldSkipNewsByFingerprint(fingerprint, seenFingerprints)
+      ) {
+        seenFingerprints.push(fingerprint);
+      }
+    }
+
+    if (seenFingerprints.length > 0) {
+      dayState[section.category] = seenFingerprints;
+    }
+  }
+
+  return normalizeDailyNewsState({
+    ...normalizedState,
+    days: {
+      ...normalizedState.days,
+      [dateKey]: dayState,
+    },
+  });
+}
+
+async function readDailyNewsStateFromFile(filePath) {
+  try {
+    const content = await readFile(filePath, 'utf8');
+    return normalizeDailyNewsState(JSON.parse(content));
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return createEmptyDailyNewsState();
+    }
+
+    console.warn(
+      `[qq-market-bot] 读取新闻去重状态失败，已忽略并继续：${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return createEmptyDailyNewsState();
+  }
+}
+
+async function writeDailyNewsStateToFile(filePath, state) {
+  try {
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(
+      filePath,
+      `${JSON.stringify(normalizeDailyNewsState(state), null, 2)}\n`,
+      'utf8',
+    );
+  } catch (error) {
+    console.warn(
+      `[qq-market-bot] 写入新闻去重状态失败，后续推送可能重复：${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+}
+
+function createDailyNewsStateStore(config) {
+  return {
+    read: () => readDailyNewsStateFromFile(config.newsStateFile),
+    write: (state) => writeDailyNewsStateToFile(config.newsStateFile, state),
+  };
 }
 
 function buildRequestOptions(options = {}) {
@@ -1279,8 +1503,12 @@ function scoreTechAiNewsItem(item) {
   return coreKeywordHits * 4 + infraKeywordHits * 2 + entityKeywordHits;
 }
 
-export function selectTechAiNewsItems(items, config, now = new Date()) {
-  const limit = config.techAiNewsLimit;
+export function selectTechAiNewsItems(
+  items,
+  config,
+  now = new Date(),
+  limit = config.techAiNewsLimit,
+) {
   const candidates = items
     .filter((item) =>
       isWithinLookbackWindow(item.publishedAt, NEWS_LOOKBACK_HOURS, now),
@@ -1374,6 +1602,7 @@ function scoreFinanceNewsItem(item) {
 }
 
 export function selectFinanceNewsItems(items, config, now = new Date()) {
+  const limit = config.financeNewsLimit;
   const candidates = items
     .filter(
       (item) =>
@@ -1399,13 +1628,13 @@ export function selectFinanceNewsItems(items, config, now = new Date()) {
   const preferred = dedupedCandidates.filter((entry) => entry.score > 0);
   const fallback = dedupedCandidates.filter((entry) => entry.score === 0);
 
-  return [...preferred, ...fallback]
-    .slice(0, config.financeNewsLimit)
-    .map((entry) => entry.item);
+  return [...preferred, ...fallback].slice(0, limit).map((entry) => entry.item);
 }
 
 async function fetchTechAiNewsCategory(config) {
   const category = 'tech-ai';
+  const candidateLimit =
+    config.techAiNewsLimit * DEFAULT_DAILY_NEWS_FETCH_MULTIPLIER;
   const feedResults = await Promise.allSettled(
     TECH_AI_NEWS_FEEDS.map(async (feed) => {
       try {
@@ -1423,6 +1652,8 @@ async function fetchTechAiNewsCategory(config) {
       .filter((result) => result.status === 'fulfilled')
       .flatMap((result) => result.value),
     config,
+    new Date(),
+    candidateLimit,
   );
 
   if (items.length === 0) {
@@ -1505,6 +1736,8 @@ async function fetch36KrFinanceItems(config) {
 
 async function fetchEastmoneyFinanceCategory(config) {
   const category = 'finance';
+  const candidateLimit =
+    config.financeNewsLimit * DEFAULT_DAILY_NEWS_FETCH_MULTIPLIER;
   const url = new URL(EASTMONEY_FAST_NEWS_URL);
   url.searchParams.set('client', 'web');
   url.searchParams.set('biz', 'web_724');
@@ -1512,7 +1745,12 @@ async function fetchEastmoneyFinanceCategory(config) {
   url.searchParams.set('sortEnd', '');
   url.searchParams.set(
     'pageSize',
-    String(config.financeNewsLimit * FINANCE_NEWS_FETCH_MULTIPLIER),
+    String(
+      Math.max(
+        config.financeNewsLimit * FINANCE_NEWS_FETCH_MULTIPLIER,
+        candidateLimit,
+      ),
+    ),
   );
   url.searchParams.set('req_trace', String(Date.now()));
 
@@ -1522,6 +1760,8 @@ async function fetchEastmoneyFinanceCategory(config) {
       buildEastmoneyFinanceNewsItem(item, config.newsSummaryMaxLength),
     ),
     config,
+    new Date(),
+    candidateLimit,
   );
 
   return {
@@ -1538,6 +1778,8 @@ function extractEastmoneySkillFinanceItems(response) {
 
 async function fetchEastmoneyFinanceSkillCategory(config) {
   const category = 'finance';
+  const candidateLimit =
+    config.financeNewsLimit * DEFAULT_DAILY_NEWS_FETCH_MULTIPLIER;
   const requestOptions = {
     method: 'POST',
     headers: {
@@ -1583,6 +1825,8 @@ async function fetchEastmoneyFinanceSkillCategory(config) {
         ),
       ),
     config,
+    new Date(),
+    candidateLimit,
   );
 
   return {
@@ -1595,6 +1839,8 @@ async function fetchEastmoneyFinanceSkillCategory(config) {
 
 async function fetchFinanceNewsCategory(config) {
   const category = 'finance';
+  const candidateLimit =
+    config.financeNewsLimit * DEFAULT_DAILY_NEWS_FETCH_MULTIPLIER;
   const primaryResults = await Promise.allSettled([
     fetchYicaiFinanceItems(config),
     fetch36KrFinanceItems(config),
@@ -1611,7 +1857,12 @@ async function fetchFinanceNewsCategory(config) {
     )
     .filter(Boolean);
 
-  let selectedItems = selectFinanceNewsItems(primaryItems, config);
+  let selectedItems = selectFinanceNewsItems(
+    primaryItems,
+    config,
+    new Date(),
+    candidateLimit,
+  );
 
   if (selectedItems.length < config.financeNewsLimit) {
     const fallbackFetchers = [];
@@ -1641,6 +1892,8 @@ async function fetchFinanceNewsCategory(config) {
     selectedItems = selectFinanceNewsItems(
       [...primaryItems, ...fallbackItems],
       config,
+      new Date(),
+      candidateLimit,
     );
   }
 
@@ -1676,6 +1929,11 @@ export function readConfig(
     mode,
     timeZone,
     dryRun,
+    dailyNewsDedupEnabled: env.MARKET_DAILY_NEWS_DEDUPE !== '0',
+    newsStateFile: resolve(
+      process.cwd(),
+      (env.MARKET_NEWS_STATE_FILE || DEFAULT_NEWS_STATE_FILE).trim(),
+    ),
     techNewsLimit: toPositiveInteger(
       env.MARKET_TECH_NEWS_LIMIT,
       DEFAULT_TECH_NEWS_LIMIT,
@@ -2159,7 +2417,7 @@ function splitNewsSection(section, maxLength) {
   }
 
   if (!section.items.length) {
-    return [`${header}\n暂无符合条件的新闻。`];
+    return [`${header}\n${section.emptyText || '暂无符合条件的新闻。'}`];
   }
 
   const chunks = [];
@@ -2501,6 +2759,9 @@ export async function runMarketPush({
   args = process.argv.slice(2),
   quoteFetcher = fetchQuote,
   newsFetcher = fetchNewsSection,
+  messagePusher = pushMessages,
+  newsStateStore = null,
+  generatedAt = new Date(),
 } = {}) {
   const isDryRun = args.includes('--dry-run') || env.MARKET_BOT_DRY_RUN === '1';
   const config = readConfig(
@@ -2512,11 +2773,26 @@ export async function runMarketPush({
       allowMissingTarget: isDryRun,
     },
   );
-  const generatedAt = new Date();
-  const [quotes, newsSections] = await Promise.all([
+  const [quotes, rawNewsSections] = await Promise.all([
     collectQuotes(config, quoteFetcher),
     collectNews(config, newsFetcher),
   ]);
+  const effectiveNewsStateStore =
+    config.dailyNewsDedupEnabled && newsStateStore === null
+      ? createDailyNewsStateStore(config)
+      : newsStateStore;
+  const currentNewsState =
+    config.dailyNewsDedupEnabled && effectiveNewsStateStore?.read
+      ? await effectiveNewsStateStore.read()
+      : createEmptyDailyNewsState();
+  const newsSections = config.dailyNewsDedupEnabled
+    ? filterDailyDuplicateNews(
+        rawNewsSections,
+        currentNewsState,
+        config,
+        generatedAt,
+      )
+    : rawNewsSections;
   const messages = buildReportMessages(
     quotes,
     newsSections,
@@ -2525,7 +2801,21 @@ export async function runMarketPush({
     config.messageMaxLength,
   );
   const message = messages.join(MESSAGE_SECTION_SEPARATOR);
-  const result = await pushMessages(config, messages);
+  const result = await messagePusher(config, messages);
+
+  if (
+    config.dailyNewsDedupEnabled &&
+    !config.dryRun &&
+    effectiveNewsStateStore?.write
+  ) {
+    const nextNewsState = mergeDailyNewsState(
+      currentNewsState,
+      newsSections,
+      config,
+      generatedAt,
+    );
+    await effectiveNewsStateStore.write(nextNewsState);
+  }
 
   return {
     config,
@@ -2573,6 +2863,8 @@ OneBot 模式：
   ONEBOT_TARGET_ID
   ONEBOT_EXTRA_TARGETS=group:群号,private:QQ号 (可选，可配置多个)
   ONEBOT_ACCESS_TOKEN (可选)
+  MARKET_DAILY_NEWS_DEDUPE=1 | 0 (可选，默认开启)
+  MARKET_NEWS_STATE_FILE=/abs/path/news-state.json (可选)
 
 QQ 官方机器人模式：
   QQ_BOT_APP_ID
