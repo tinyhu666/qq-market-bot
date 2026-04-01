@@ -137,7 +137,8 @@ typings/
 当前价格抓取策略为：
 
 - `XAU`、`ETH`：`Twelve Data`
-- `XAG`、`WTI`、`NDX`、`SPX`、`USDX`、`SH`：新浪公开行情接口优先，必要时对 `XAG`、`WTI`、`USDX`、`SH` 回退到东方财富公开行情接口
+- `NDX`、`SPX`：`CNBC` 行情页优先，必要时回退到 `Stooq` 价格快照
+- `XAG`、`WTI`、`USDX`、`SH`：新浪公开行情接口优先，必要时回退到东方财富公开行情接口
 
 价格区块会按 `中文名（英文代码）` 展示，并直接附带涨跌幅百分比。
 
@@ -218,7 +219,7 @@ npm run market:auth:check
 - `ONEBOT_MESSAGE_TYPE=private` 时，`ONEBOT_TARGET_ID` 填对方 QQ 号
 - 如果你想在原有目标外再追加多个群或私聊 QQ，可以填写 `ONEBOT_EXTRA_TARGETS`
 - 示例：`ONEBOT_EXTRA_TARGETS=private:123456789`
-- 多个目标可写成：`ONEBOT_EXTRA_TARGETS=private:123456789,group:987654321`
+- 多个目标可写成：`ONEBOT_EXTRA_TARGETS=private:123456789,private:234567890,group:987654321`
 - `ONEBOT_HTTP_URL` 填 OneBot HTTP API 地址，例如 `http://127.0.0.1:3000`
 - `ONEBOT_WS_URL` 填 OneBot WebSocket Server 地址，例如 `ws://127.0.0.1:3001`
 - `ONEBOT_HTTP_URL` 和 `ONEBOT_WS_URL` 二选一即可；都填时默认优先使用 HTTP

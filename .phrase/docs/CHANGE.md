@@ -95,3 +95,14 @@
 - change091 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充三段定时、NDX/SPX 和标题型新闻源优化的阶段优先级与风险说明 | 关联:task022
 - change092 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将当前目标更新为 09:25/13:25/18:25 的八品种播报，并明确新新闻源链路与验收标准 | 关联:task022
 - change093 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task022，记录三段定时、NDX/SPX 与新新闻源替换需求 | 关联:task022
+- change094 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:NDX/SPX 行情抓取 | 说明:将 NDX/SPX 默认数据源从新浪全球指数切换为 CNBC 行情页，并在页面不可用时回退到 Stooq 价格快照，避免服务器出口被新浪拦截导致上线失败 | 关联:task023
+- change095 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充 CNBC 页面解析与 Stooq 兜底抓取测试，覆盖服务器侧 NDX/SPX 替代源链路 | 关联:task023
+- change096 日期:2026-04-01 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:将 NDX/SPX 数据源说明更新为 CNBC+Stooq，并补充 ONEBOT_EXTRA_TARGETS 同时追加多个私聊接收者的示例 | 关联:task023
+- change097 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充服务器访问新浪全球指数接口被拦截时的替代源要求，以及群+多个私聊接收者的验收条件 | 关联:task023
+- change098 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充新浪接口 Forbidden 风险、CNBC 结构变更风险，以及多个私聊接收者的优先级 | 关联:task023
+- change099 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:修正 task022 的 NDX/SPX 描述并新增完成 task023，记录第二个私聊接收者和服务器侧替代源上线 | 关联:task023
+- change100 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot.env | 操作:Modify | 影响:OneBot 接收目标 | 说明:将 ONEBOT_EXTRA_TARGETS 更新为两个私聊接收者，确保同一轮播报同时送达群和两个个人 QQ | 关联:task023
+- change101 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot.mjs | 操作:Modify | 影响:线上 NDX/SPX 行情链路 | 说明:同步支持 CNBC+Stooq 的最新脚本到服务器运行目录，并替换旧的新浪全球指数实现 | 关联:task023
+- change102 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:线上验证脚本 | 说明:同步新的 CNBC/Stooq 单元测试到服务器，并使用独立 Node 运行时完成远端测试通过 | 关联:task023
+- change103 日期:2026-04-01 | 文件:服务器:/home/ubuntu/stock-bot/README.md | 操作:Modify | 影响:服务器部署目录说明 | 说明:同步最新 README 到服务器目录，保持线上目录中的运维说明与仓库现状一致 | 关联:task023
+- change104 日期:2026-04-01 | 文件:服务器:crontab | 操作:Modify | 影响:定时执行 | 说明:确认服务器 cron 采用每天 09:25、13:25、18:25 执行包装脚本，并完成 dry-run 与真实推送验证 | 关联:task023

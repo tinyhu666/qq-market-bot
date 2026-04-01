@@ -10,6 +10,8 @@ const QQ_ACCESS_TOKEN_URL = 'https://bots.qq.com/app/getAppAccessToken';
 const QQ_OFFICIAL_API_BASE_URL = 'https://api.sgroup.qq.com';
 const TWELVE_DATA_QUOTE_URL = 'https://api.twelvedata.com/quote';
 const SINA_QUOTE_URL = 'https://hq.sinajs.cn/list=';
+const CNBC_QUOTE_PAGE_URL = 'https://www.cnbc.com/quotes/';
+const STOOQ_QUOTE_URL = 'https://stooq.com/q/l/';
 const YICAI_INFO_URL = 'https://www.yicai.com/news/info/';
 const THIRTY_SIX_KR_NEWSFLASH_FEED_URL = 'https://36kr.com/feed-newsflash';
 const EASTMONEY_FAST_NEWS_URL =
@@ -259,18 +261,18 @@ const DEFAULT_SYMBOLS = [
     symbol: 'NDX',
     label: 'NDX',
     displayName: '纳指100（NDX）',
-    provider: 'sina',
-    sinaSymbol: 'gb_ndx',
-    sinaType: 'global-index',
+    provider: 'cnbc',
+    cnbcSymbol: '.NDX',
+    stooqSymbol: '^NDX',
     decimals: 2,
   },
   {
     symbol: 'SPX',
     label: 'SPX',
     displayName: '标普500（SPX）',
-    provider: 'sina',
-    sinaSymbol: 'gb_inx',
-    sinaType: 'global-index',
+    provider: 'cnbc',
+    cnbcSymbol: '.SPX',
+    stooqSymbol: '^SPX',
     decimals: 2,
   },
   {
@@ -326,6 +328,19 @@ function normalizeOneBotMessageType(value, fieldName) {
 function toNumberLike(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseLooseNumber(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const normalized = String(value)
+    .replace(/,/g, '')
+    .replace(/[％%]/g, '')
+    .trim();
+
+  return toNumberLike(normalized);
 }
 
 function toPositiveInteger(value, fallback) {
@@ -1820,6 +1835,99 @@ export async function fetchEastmoneyQuote(symbolConfig) {
   };
 }
 
+function parseCnbcQuotePayload(payload, symbolConfig) {
+  const pattern = /"quote":\{"data":\[(\{.*?\})\],"news":/s;
+  const match = payload.match(pattern);
+  if (!match) {
+    throw new Error(`CNBC ${symbolConfig.label} 未返回有效数据`);
+  }
+
+  let data = null;
+  try {
+    data = JSON.parse(match[1]);
+  } catch (error) {
+    throw new Error(
+      `CNBC ${symbolConfig.label} 返回了不可解析的行情对象：${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  const price = parseLooseNumber(data?.last);
+  const previousClose = parseLooseNumber(data?.previous_day_closing);
+
+  if (price === null) {
+    throw new Error(`CNBC ${symbolConfig.label} 没有返回有效价格`);
+  }
+
+  return {
+    symbol: symbolConfig.symbol,
+    price,
+    percentChange:
+      previousClose === null
+        ? parseLooseNumber(data?.change_pct)
+        : calculatePercentChange(price, previousClose),
+    exchange: data?.exchange || '',
+    sourceTimestamp: data?.last_time || data?.last_timedate || '',
+  };
+}
+
+async function fetchCnbcQuote(symbolConfig) {
+  const url = `${CNBC_QUOTE_PAGE_URL}${encodeURIComponent(symbolConfig.cnbcSymbol)}`;
+  const payload = await fetchTextWithFallbacks(url);
+  return parseCnbcQuotePayload(payload, symbolConfig);
+}
+
+function parseStooqQuotePayload(payload, symbolConfig) {
+  const line = String(payload || '')
+    .trim()
+    .split(/\r?\n/u)
+    .find(Boolean);
+
+  if (!line) {
+    throw new Error(`Stooq ${symbolConfig.label} 未返回有效数据`);
+  }
+
+  const [symbol, date, time, , , , close] = line
+    .split(',')
+    .map((item) => item.trim());
+
+  if (!symbol || symbol.toLowerCase() === 'symbol') {
+    throw new Error(`Stooq ${symbolConfig.label} 返回了无效内容`);
+  }
+
+  const price = parseLooseNumber(close);
+  if (price === null) {
+    throw new Error(`Stooq ${symbolConfig.label} 没有返回有效价格`);
+  }
+
+  const normalizedDate =
+    date && date.length === 8
+      ? `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`
+      : '';
+  const normalizedTime =
+    time && time.length === 6
+      ? `${time.slice(0, 2)}:${time.slice(2, 4)}:${time.slice(4, 6)}`
+      : '';
+
+  return {
+    symbol: symbolConfig.symbol,
+    price,
+    percentChange: null,
+    exchange: 'STOOQ',
+    sourceTimestamp: normalizeWhitespace(`${normalizedDate} ${normalizedTime}`),
+  };
+}
+
+async function fetchStooqQuote(symbolConfig) {
+  const url = new URL(STOOQ_QUOTE_URL);
+  url.searchParams.set('s', symbolConfig.stooqSymbol);
+  url.searchParams.set('i', 'd');
+
+  const payload = await fetchTextWithFallbacks(url);
+  return parseStooqQuotePayload(payload, symbolConfig);
+}
+
 function parseSinaQuotePayload(payload, sinaSymbol) {
   const pattern = new RegExp(
     `var\\s+hq_str_${escapeRegExp(sinaSymbol)}="([^"]*)"`,
@@ -1960,6 +2068,18 @@ export async function fetchQuote(symbolConfig, config) {
     } catch (error) {
       if (symbolConfig.secid) {
         return fetchEastmoneyQuote(symbolConfig);
+      }
+
+      throw error;
+    }
+  }
+
+  if (symbolConfig.provider === 'cnbc') {
+    try {
+      return await fetchCnbcQuote(symbolConfig);
+    } catch (error) {
+      if (symbolConfig.stooqSymbol) {
+        return fetchStooqQuote(symbolConfig);
       }
 
       throw error;

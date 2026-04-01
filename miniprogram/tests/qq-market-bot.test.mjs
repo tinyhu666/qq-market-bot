@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildReportMessages,
+  fetchQuote,
   formatReport,
   normalizeSummaryLine,
   readConfig,
@@ -431,6 +432,94 @@ test('selectFinanceNewsItems filters calendar noise, clickbait, and duplicate he
       '沪指涨0.24%，深证成指跌0.25%，创业板指跌0.68%。成交额超1.9万亿。',
     ].sort(),
   );
+});
+
+test('fetchQuote reads NDX/SPX from CNBC quote pages', async () => {
+  const originalFetch = globalThis.fetch;
+  const spxHtml = `
+    <html>
+      <body>
+        <script>
+          window.__DATA__={"quote":{"data":[{"symbol":".SPX","last":"6,528.52","previous_day_closing":"6,343.72","change_pct":"+2.91%","exchange":"INDEX","last_time":"2026-03-31T16:42:48.000-0400"}],"news":{"latestNews":[]}}};
+        </script>
+      </body>
+    </html>
+  `;
+
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () => spxHtml,
+  });
+
+  try {
+    const quote = await fetchQuote(
+      {
+        symbol: 'SPX',
+        label: 'SPX',
+        provider: 'cnbc',
+        cnbcSymbol: '.SPX',
+        stooqSymbol: '^SPX',
+        decimals: 2,
+      },
+      {
+        twelveDataApiKey: 'demo-key',
+      },
+    );
+
+    assert.equal(quote.price, 6528.52);
+    assert.equal(quote.percentChange?.toFixed(2), '2.91');
+    assert.equal(quote.exchange, 'INDEX');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('fetchQuote falls back to Stooq when CNBC payload is unavailable', async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async (url) => {
+    const requestUrl = String(url);
+
+    if (requestUrl.includes('www.cnbc.com/quotes/')) {
+      return {
+        ok: true,
+        text: async () => '<html><body>missing quote payload</body></html>',
+      };
+    }
+
+    if (requestUrl.includes('stooq.com/q/l/')) {
+      return {
+        ok: true,
+        text: async () =>
+          '^SPX,20260331,230000,6395.88,6539.05,6395.88,6528.52,3882633104,\r\n',
+      };
+    }
+
+    throw new Error(`unexpected url: ${requestUrl}`);
+  };
+
+  try {
+    const quote = await fetchQuote(
+      {
+        symbol: 'SPX',
+        label: 'SPX',
+        provider: 'cnbc',
+        cnbcSymbol: '.SPX',
+        stooqSymbol: '^SPX',
+        decimals: 2,
+      },
+      {
+        twelveDataApiKey: 'demo-key',
+      },
+    );
+
+    assert.equal(quote.price, 6528.52);
+    assert.equal(quote.percentChange, null);
+    assert.equal(quote.exchange, 'STOOQ');
+    assert.equal(quote.sourceTimestamp, '2026-03-31 23:00:00');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('runMarketPush supports dry-run mode', async () => {
