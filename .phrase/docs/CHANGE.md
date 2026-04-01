@@ -162,3 +162,9 @@
 - change158 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:新增 AI 硬新闻口吻、主体明确和招聘/自媒体腔过滤的验收要求 | 关联:task030
 - change159 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 AI 提示词继续收紧和 Gemini/DeepSeek 回退风格一致性的优先级与风险 | 关联:task030
 - change160 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task030，记录 AI 硬新闻口吻和招聘/主体不明确内容过滤的需求与验证方式 | 关联:task030
+- change161 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 热度排序与最终榜单 | 说明:为 AI 候选补充基于来源权威度、事件信号、发布时间与跨源覆盖的热度分，并把 AI LLM 输出改为过去24小时热榜的统一排序结果，在满足 7+3 配比前提下按总热度混排 | 关联:task031
+- change162 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充 AI 热度排序测试，并将 AI LLM 测试更新为统一热榜 items 输出，校验最终结果按热度混排且保持 7+3 配比 | 关联:task031
+- change163 日期:2026-04-01 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充 AI Top 10 改为过去24小时热榜、热度评分维度以及 7+3 前提下按总热度混排的说明 | 关联:task031
+- change164 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:新增 AI Top 10 作为过去24小时统一热榜的目标、边界条件与验收要求 | 关联:task031
+- change165 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 AI 热榜混排优先级与热度评分依赖来源权重、时间和覆盖度的风险说明 | 关联:task031
+- change166 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task031，记录过去24小时 AI 热榜、7+3 配比和总热度混排需求 | 关联:task031

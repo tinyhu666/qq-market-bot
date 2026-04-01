@@ -371,6 +371,13 @@ test('selectTechAiNewsItems filters noisy titles, trims multi-topic headlines, a
         sourcePriority: 6,
         publishedAt: new Date('2026-03-30T09:25:00+08:00'),
       },
+      {
+        title: '铂金会员可享视频模型8折灵感值优惠',
+        summary: '铂金会员可享视频模型8折灵感值优惠。',
+        source: '某媒体',
+        sourcePriority: 5,
+        publishedAt: new Date('2026-03-30T09:26:00+08:00'),
+      },
     ],
     {
       techAiNewsLimit: 3,
@@ -545,6 +552,39 @@ test('selectTechAiNewsItems prefers higher-priority sources when relevance is si
   assert.equal(items.length, 1);
   assert.equal(items[0].source, 'OpenAI News');
   assert.equal(items[0].region, 'international');
+});
+
+test('selectTechAiNewsItems prefers hotter stories by source authority, freshness, and event signal', () => {
+  const items = selectTechAiNewsItems(
+    [
+      {
+        title: 'OpenAI 完成新一轮巨额融资并扩大企业级智能体投入',
+        summary: 'OpenAI 完成新一轮巨额融资并扩大企业级智能体投入。',
+        source: 'OpenAI News',
+        sourcePriority: 10,
+        region: 'international',
+        publishedAt: new Date('2026-04-01T17:30:00+08:00'),
+      },
+      {
+        title: '某媒体对 AI 未来趋势进行圆桌讨论',
+        summary: '某媒体对 AI 未来趋势进行圆桌讨论。',
+        source: '某媒体',
+        sourcePriority: 6,
+        region: 'international',
+        publishedAt: new Date('2026-04-01T17:50:00+08:00'),
+      },
+    ],
+    {
+      techAiNewsLimit: 2,
+      newsSummaryMaxLength: 48,
+    },
+    new Date('2026-04-01T18:00:00+08:00'),
+  );
+
+  assert.equal(items.length, 2);
+  assert.equal(items[0].source, 'OpenAI News');
+  assert.match(items[0].title, /巨额融资/u);
+  assert.ok(items[0].heatScore > items[1].heatScore);
 });
 
 test('selectFinanceNewsItems filters calendar noise, clickbait, and duplicate headlines', () => {
@@ -839,6 +879,7 @@ test('generateTechAiNewsWithLlm uses Gemini as primary provider', async () => {
             summary: 'OpenAI 扩展 Responses API，为自主智能体提供基础设施。',
             source: '某媒体',
             publishedAt: new Date('2026-04-01T09:00:00+08:00'),
+            heatScore: 120,
           },
         },
         {
@@ -848,6 +889,7 @@ test('generateTechAiNewsWithLlm uses Gemini as primary provider', async () => {
             summary: 'Anthropic 推出新一代 Claude Agent 工作流能力。',
             source: '另一家媒体',
             publishedAt: new Date('2026-04-01T09:30:00+08:00'),
+            heatScore: 90,
           },
         },
       ],
@@ -885,16 +927,46 @@ test('generateTechAiNewsWithLlm keeps 7 international and 3 domestic items when 
               parts: [
                 {
                   text: JSON.stringify({
-                    internationalItems: [
+                    items: [
                       {
                         candidateId: 'c01',
                         summary: 'OpenAI 发布新能力，强化智能体基础设施。',
                       },
-                    ],
-                    domesticItems: [
                       {
                         candidateId: 'c08',
                         summary: '阿里云发布通义千问新模型，强化企业智能体。',
+                      },
+                      {
+                        candidateId: 'c02',
+                        summary: 'Anthropic 发布新模型，强化代码与智能体能力。',
+                      },
+                      {
+                        candidateId: 'c03',
+                        summary: 'Google 推出新一代多模态模型。',
+                      },
+                      {
+                        candidateId: 'c09',
+                        summary: '百度发布文心新能力，推进智能体落地。',
+                      },
+                      {
+                        candidateId: 'c04',
+                        summary: 'Meta 发布开源推理模型。',
+                      },
+                      {
+                        candidateId: 'c10',
+                        summary: '腾讯升级混元模型并开放企业接口。',
+                      },
+                      {
+                        candidateId: 'c05',
+                        summary: 'NVIDIA 扩展 AI 基础设施布局。',
+                      },
+                      {
+                        candidateId: 'c06',
+                        summary: 'Microsoft 扩展 Copilot 企业能力。',
+                      },
+                      {
+                        candidateId: 'c07',
+                        summary: 'Apple 推进 AI 系统级能力。',
                       },
                     ],
                   }),
@@ -907,23 +979,65 @@ test('generateTechAiNewsWithLlm keeps 7 international and 3 domestic items when 
   });
 
   const candidates = [
-    'OpenAI 发布新能力，强化智能体基础设施',
-    'Anthropic 发布新模型，强化代码与智能体能力',
-    'Google 推出新一代多模态模型',
-    'Meta 发布开源推理模型',
-    'NVIDIA 扩展 AI 基础设施布局',
-    'Microsoft 扩展 Copilot 企业能力',
-    'Apple 推进 AI 系统级能力',
-    '阿里云发布通义千问新模型，强化企业智能体',
-    '百度发布文心新能力，推进智能体落地',
-    '腾讯升级混元模型并开放企业接口',
-  ].map((title, index) => ({
+    {
+      title: 'OpenAI 发布新能力，强化智能体基础设施',
+      region: 'international',
+      heatScore: 200,
+    },
+    {
+      title: 'Anthropic 发布新模型，强化代码与智能体能力',
+      region: 'international',
+      heatScore: 170,
+    },
+    {
+      title: 'Google 推出新一代多模态模型',
+      region: 'international',
+      heatScore: 160,
+    },
+    {
+      title: 'Meta 发布开源推理模型',
+      region: 'international',
+      heatScore: 135,
+    },
+    {
+      title: 'NVIDIA 扩展 AI 基础设施布局',
+      region: 'international',
+      heatScore: 120,
+    },
+    {
+      title: 'Microsoft 扩展 Copilot 企业能力',
+      region: 'international',
+      heatScore: 110,
+    },
+    {
+      title: 'Apple 推进 AI 系统级能力',
+      region: 'international',
+      heatScore: 95,
+    },
+    {
+      title: '阿里云发布通义千问新模型，强化企业智能体',
+      region: 'domestic',
+      heatScore: 180,
+    },
+    {
+      title: '百度发布文心新能力，推进智能体落地',
+      region: 'domestic',
+      heatScore: 150,
+    },
+    {
+      title: '腾讯升级混元模型并开放企业接口',
+      region: 'domestic',
+      heatScore: 130,
+    },
+  ].map((entry, index) => ({
     candidateId: `c${String(index + 1).padStart(2, '0')}`,
+    region: entry.region,
     item: {
-      title,
-      summary: `${title}。`,
+      title: entry.title,
+      summary: `${entry.title}。`,
       source: '某媒体',
       publishedAt: new Date(`2026-04-01T0${Math.min(index, 9)}:00:00+08:00`),
+      heatScore: entry.heatScore,
     },
   }));
 
@@ -946,6 +1060,16 @@ test('generateTechAiNewsWithLlm keeps 7 international and 3 domestic items when 
       7,
     );
     assert.equal(items.filter((item) => item.region === 'domestic').length, 3);
+    assert.deepEqual(
+      items.slice(0, 5).map((item) => item.title),
+      [
+        'OpenAI 发布新能力，强化智能体基础设施',
+        '阿里云发布通义千问新模型，强化企业智能体',
+        'Anthropic 发布新模型，强化代码与智能体能力',
+        'Google 推出新一代多模态模型',
+        '百度发布文心新能力，推进智能体落地',
+      ],
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -1005,6 +1129,7 @@ test('generateTechAiNewsWithLlm falls back to DeepSeek when Gemini fails', async
             summary: 'Anthropic 发布新一代 Claude 模型，强化代码与智能体能力。',
             source: '某媒体',
             publishedAt: new Date('2026-04-01T10:00:00+08:00'),
+            heatScore: 100,
           },
         },
       ],
@@ -1042,7 +1167,7 @@ test('generateTechAiNewsWithLlm skips clickbait candidates and falls back from l
               parts: [
                 {
                   text: JSON.stringify({
-                    internationalItems: [
+                    items: [
                       {
                         candidateId: 'c01',
                         summary: 'ToB AI最贵重的门票。',
@@ -1061,7 +1186,6 @@ test('generateTechAiNewsWithLlm skips clickbait candidates and falls back from l
                         summary: 'AI智能体之间真正自主支付的钱包，来了！',
                       },
                     ],
-                    domesticItems: [],
                   }),
                 },
               ],
@@ -1083,6 +1207,7 @@ test('generateTechAiNewsWithLlm skips clickbait candidates and falls back from l
             source: '某聚合源',
             sourcePriority: 4,
             publishedAt: new Date('2026-04-01T10:00:00+08:00'),
+            heatScore: 80,
           },
         },
         {
@@ -1094,6 +1219,7 @@ test('generateTechAiNewsWithLlm skips clickbait candidates and falls back from l
             source: 'Anthropic News',
             sourcePriority: 10,
             publishedAt: new Date('2026-04-01T10:10:00+08:00'),
+            heatScore: 150,
           },
         },
         {
@@ -1105,6 +1231,7 @@ test('generateTechAiNewsWithLlm skips clickbait candidates and falls back from l
             source: 'OpenAI News',
             sourcePriority: 10,
             publishedAt: new Date('2026-04-01T10:15:00+08:00'),
+            heatScore: 140,
           },
         },
         {
@@ -1116,6 +1243,7 @@ test('generateTechAiNewsWithLlm skips clickbait candidates and falls back from l
             source: '某媒体',
             sourcePriority: 8,
             publishedAt: new Date('2026-04-01T10:18:00+08:00'),
+            heatScore: 130,
           },
         },
         {
@@ -1127,6 +1255,7 @@ test('generateTechAiNewsWithLlm skips clickbait candidates and falls back from l
             source: 'OpenAI News',
             sourcePriority: 10,
             publishedAt: new Date('2026-04-01T10:20:00+08:00'),
+            heatScore: 160,
           },
         },
       ],
@@ -1203,13 +1332,12 @@ test('generateTechAiNewsWithLlm falls back to clean titles when llm summary is c
               parts: [
                 {
                   text: JSON.stringify({
-                    internationalItems: [
+                    items: [
                       {
                         candidateId: 'c01',
                         summary: '能看能听能唠嗑，还能现场vibe coding。',
                       },
                     ],
-                    domesticItems: [],
                   }),
                 },
               ],
@@ -1231,6 +1359,7 @@ test('generateTechAiNewsWithLlm falls back to clean titles when llm summary is c
             source: '某媒体',
             sourcePriority: 8,
             publishedAt: new Date('2026-04-01T10:25:00+08:00'),
+            heatScore: 100,
           },
         },
       ],
@@ -1267,14 +1396,13 @@ test('generateTechAiNewsWithLlm falls back when llm summary lacks a clear subjec
               parts: [
                 {
                   text: JSON.stringify({
-                    internationalItems: [
+                    items: [
                       {
                         candidateId: 'c01',
                         summary:
                           '旨在通过“一个通用大脑适配多种形态机器人”打破异构硬件壁垒。',
                       },
                     ],
-                    domesticItems: [],
                   }),
                 },
               ],
@@ -1296,6 +1424,7 @@ test('generateTechAiNewsWithLlm falls back when llm summary lacks a clear subjec
             source: '某媒体',
             sourcePriority: 8,
             publishedAt: new Date('2026-04-01T10:30:00+08:00'),
+            heatScore: 100,
           },
         },
       ],
@@ -1315,6 +1444,71 @@ test('generateTechAiNewsWithLlm falls back when llm summary lacks a clear subjec
     assert.equal(items.length, 1);
     assert.equal(/^旨在/u.test(items[0].summary), false);
     assert.match(items[0].summary, /某机器人公司发布通用大脑平台/u);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateTechAiNewsWithLlm falls back when llm summary is vague corporate sloganeering', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    items: [
+                      {
+                        candidateId: 'c01',
+                        summary:
+                          '本财年定为“AI交付”之年，旨在确立在混合式人工智能领域的领先地位。',
+                      },
+                    ],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const items = await generateTechAiNewsWithLlm(
+      [
+        {
+          candidateId: 'c01',
+          region: 'international',
+          item: {
+            title: '联想宣布新财年转向 AI 交付并加码企业产品落地',
+            summary: '联想宣布新财年转向 AI 交付并加码企业产品落地。',
+            source: '某媒体',
+            sourcePriority: 8,
+            publishedAt: new Date('2026-04-01T10:35:00+08:00'),
+            heatScore: 100,
+          },
+        },
+      ],
+      {
+        techAiNewsLimit: 1,
+        newsSummaryMaxLength: 48,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-chat',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(items.length, 1);
+    assert.equal(/本财年|领先地位/u.test(items[0].summary), false);
+    assert.match(items[0].summary, /联想宣布新财年转向 AI 交付/u);
   } finally {
     globalThis.fetch = originalFetch;
   }

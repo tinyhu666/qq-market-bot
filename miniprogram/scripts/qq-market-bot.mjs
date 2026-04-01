@@ -189,6 +189,48 @@ const TECH_AI_NEWS_FILTER_CONFIG = {
     '腾讯',
     '字节',
   ],
+  hotKeywords: [
+    '发布',
+    '推出',
+    '开源',
+    '上线',
+    '升级',
+    '融资',
+    '估值',
+    '财报',
+    '白皮书',
+    '投资',
+    '收购',
+    '并购',
+    '合作',
+    '删除',
+    '下架',
+    '版权',
+    '筹资',
+    'ipo',
+    '上市',
+    '转型',
+    '开放',
+  ],
+  softKeywords: [
+    '趋势',
+    '观察',
+    '评论',
+    '解读',
+    '教程',
+    '测评',
+    '盘点',
+    '为什么',
+    '如何',
+    '未来',
+    '担忧',
+    '访谈',
+    '对话',
+    '播客',
+    '圆桌',
+    '启示',
+    '思考',
+  ],
   excludeKeywords: [
     '政务',
     '谣言',
@@ -860,6 +902,63 @@ function selectUniqueNewsEntries(entries, textSelector) {
   return uniqueEntries;
 }
 
+function buildTechAiNewsCoverageMap(items) {
+  const coverageMap = new Map();
+  const clusters = [];
+
+  for (const item of items) {
+    const normalizedTitle = normalizeTechAiNewsTitle(
+      item.title || item.summary || '',
+    );
+    if (!normalizedTitle) {
+      continue;
+    }
+
+    let matchedCluster = null;
+    for (const cluster of clusters) {
+      if (
+        cluster.titles.some((title) =>
+          isLikelyDuplicateNewsText(normalizedTitle, title),
+        )
+      ) {
+        matchedCluster = cluster;
+        break;
+      }
+    }
+
+    if (!matchedCluster) {
+      matchedCluster = {
+        titles: [],
+        items: [],
+        sources: new Set(),
+      };
+      clusters.push(matchedCluster);
+    }
+
+    matchedCluster.titles.push(normalizedTitle);
+    matchedCluster.items.push(item);
+    if (item.source) {
+      matchedCluster.sources.add(
+        normalizeWhitespace(String(item.source || '')).toLowerCase(),
+      );
+    }
+  }
+
+  for (const cluster of clusters) {
+    const coverageCount = cluster.items.length;
+    const sourceCount = Math.max(cluster.sources.size, 1);
+
+    for (const item of cluster.items) {
+      coverageMap.set(item, {
+        coverageCount,
+        sourceCount,
+      });
+    }
+  }
+
+  return coverageMap;
+}
+
 function normalizeTechAiNewsTitle(text) {
   return truncateMultiTopicTechHeadline(
     collapseRepeatedHeadline(
@@ -1504,7 +1603,25 @@ function isLowQualityTechAiSummaryLine(text) {
     return true;
   }
 
+  if (/^(?:本财年|下一阶段)/u.test(text)) {
+    return true;
+  }
+
   if (/从[“"][^”"]+[”"]迈向[“"][^”"]+[”"]/u.test(text)) {
+    return true;
+  }
+
+  if (
+    /(?:ai下一阶段|下一阶段发展进程|确立在[^，。]{0,20}领先地位)/iu.test(text)
+  ) {
+    return true;
+  }
+
+  if (
+    /(?:会员可享|灵感值|[89]折优惠|平台还延长了|优惠计划|限时[0-9一二三四五六七八九]折|折起|会员模型)/u.test(
+      text,
+    )
+  ) {
     return true;
   }
 
@@ -1978,6 +2095,10 @@ function buildTechAiNewsItem(item, maxLength) {
     llmSummary:
       item.llmSummary || normalizeFeedSummary(item.summary || '', cleanedTitle),
     sourcePriority: item.sourcePriority || 0,
+    heatScore: Number.isFinite(item.heatScore) ? item.heatScore : 0,
+    coverageCount: item.coverageCount || 1,
+    sourceCount: item.sourceCount || 1,
+    llmRank: Number.isFinite(item.llmRank) ? item.llmRank : null,
   };
 }
 
@@ -2025,6 +2146,33 @@ function countMatchedKeywords(text, keywords = []) {
   );
 }
 
+function getPublishedAtValue(date) {
+  return date instanceof Date && !Number.isNaN(date.valueOf())
+    ? date.valueOf()
+    : 0;
+}
+
+function compareTechAiNewsItemsByHeat(left, right) {
+  const leftHeatScore = Number.isFinite(left?.heatScore) ? left.heatScore : 0;
+  const rightHeatScore = Number.isFinite(right?.heatScore)
+    ? right.heatScore
+    : 0;
+  const leftLlmRank = Number.isFinite(left?.llmRank)
+    ? left.llmRank
+    : Number.MAX_SAFE_INTEGER;
+  const rightLlmRank = Number.isFinite(right?.llmRank)
+    ? right.llmRank
+    : Number.MAX_SAFE_INTEGER;
+
+  return (
+    rightHeatScore - leftHeatScore ||
+    leftLlmRank - rightLlmRank ||
+    (right.sourcePriority || 0) - (left.sourcePriority || 0) ||
+    getPublishedAtValue(right?.publishedAt) -
+      getPublishedAtValue(left?.publishedAt)
+  );
+}
+
 function isExcludedTechAiNewsItem(item) {
   const title = normalizeWhitespace(item.title || '');
   const haystack = `${title} ${item.source || ''}`.toLowerCase();
@@ -2039,6 +2187,14 @@ function isExcludedTechAiNewsItem(item) {
 
   if (
     /(?:最贵重的门票|沉浸式观感|一图看懂|保姆级|手把手|爆款攻略)/u.test(title)
+  ) {
+    return true;
+  }
+
+  if (
+    /(?:会员可享|灵感值|[89]折优惠|平台还延长了|优惠计划|限时[0-9一二三四五六七八九]折|折起|会员模型)/u.test(
+      title,
+    )
   ) {
     return true;
   }
@@ -2090,7 +2246,7 @@ function isRelevantTechAiNewsItem(item) {
   return coreKeywordHits > 0 || infraKeywordHits > 0;
 }
 
-function scoreTechAiNewsItem(item) {
+function scoreTechAiNewsItem(item, now = new Date()) {
   const haystack =
     `${item.title} ${item.summary || ''} ${item.source || ''}`.toLowerCase();
   const coreKeywordHits = countMatchedKeywords(
@@ -2105,12 +2261,50 @@ function scoreTechAiNewsItem(item) {
     haystack,
     TECH_AI_NEWS_FILTER_CONFIG.entityKeywords,
   );
+  const hotKeywordHits = countMatchedKeywords(
+    haystack,
+    TECH_AI_NEWS_FILTER_CONFIG.hotKeywords,
+  );
+  const softKeywordHits = countMatchedKeywords(
+    haystack,
+    TECH_AI_NEWS_FILTER_CONFIG.softKeywords,
+  );
+  const publishedAtValue = getPublishedAtValue(item.publishedAt);
+  const ageHours =
+    publishedAtValue > 0
+      ? Math.max(0, (now.valueOf() - publishedAtValue) / (60 * 60 * 1000))
+      : NEWS_LOOKBACK_HOURS;
+  const recencyBoost =
+    Math.max(0, NEWS_LOOKBACK_HOURS - Math.min(ageHours, NEWS_LOOKBACK_HOURS)) *
+    1.2;
+  const coverageBoost = Math.max((item.coverageCount || 1) - 1, 0) * 5;
+  const sourceCoverageBoost = Math.max((item.sourceCount || 1) - 1, 0) * 6;
+  const officialSourceBoost =
+    (item.sourcePriority || 0) >= 9
+      ? 10
+      : (item.sourcePriority || 0) >= 8
+        ? 6
+        : 0;
+  const actionBoost =
+    /(?:发布|推出|开源|升级|上线|融资|收购|并购|合作|删除|下架|转型|财报|筹资|估值|白皮书)/u.test(
+      haystack,
+    )
+      ? 6
+      : 0;
+  const softPenalty = softKeywordHits * 5;
 
   return (
-    coreKeywordHits * 4 +
-    infraKeywordHits * 2 +
-    entityKeywordHits +
-    (item.sourcePriority || 0) * 3
+    coreKeywordHits * 5 +
+    infraKeywordHits * 3 +
+    entityKeywordHits * 2 +
+    hotKeywordHits * 3 +
+    (item.sourcePriority || 0) * 4 +
+    officialSourceBoost +
+    coverageBoost +
+    sourceCoverageBoost +
+    recencyBoost +
+    actionBoost -
+    softPenalty
   );
 }
 
@@ -2120,18 +2314,30 @@ export function selectTechAiNewsItems(
   now = new Date(),
   limit = config.techAiNewsLimit,
 ) {
+  const coverageMap = buildTechAiNewsCoverageMap(items);
   const candidates = items
     .filter((item) =>
       isWithinLookbackWindow(item.publishedAt, NEWS_LOOKBACK_HOURS, now),
     )
-    .map((item) => ({
-      item,
-      excluded: isExcludedTechAiNewsItem(item),
-      relevant: isRelevantTechAiNewsItem(item),
-      score: scoreTechAiNewsItem(item),
-      publishedAt:
-        item.publishedAt instanceof Date ? item.publishedAt.valueOf() : 0,
-    }))
+    .map((item) => {
+      const coverage = coverageMap.get(item) || {
+        coverageCount: 1,
+        sourceCount: 1,
+      };
+      const rankedItem = {
+        ...item,
+        coverageCount: coverage.coverageCount,
+        sourceCount: coverage.sourceCount,
+      };
+
+      return {
+        item: rankedItem,
+        excluded: isExcludedTechAiNewsItem(rankedItem),
+        relevant: isRelevantTechAiNewsItem(rankedItem),
+        score: scoreTechAiNewsItem(rankedItem, now),
+        publishedAt: getPublishedAtValue(rankedItem.publishedAt),
+      };
+    })
     .filter((entry) => !entry.excluded && entry.relevant)
     .sort(
       (left, right) =>
@@ -2144,11 +2350,15 @@ export function selectTechAiNewsItems(
   const preferred = dedupedCandidates.filter((entry) => entry.score > 0);
   const fallback = dedupedCandidates.filter((entry) => entry.score === 0);
 
-  return [...preferred, ...fallback]
-    .slice(0, limit)
-    .map((entry) =>
-      buildTechAiNewsItem(entry.item, config.newsSummaryMaxLength),
-    );
+  return [...preferred, ...fallback].slice(0, limit).map((entry) =>
+    buildTechAiNewsItem(
+      {
+        ...entry.item,
+        heatScore: entry.score,
+      },
+      config.newsSummaryMaxLength,
+    ),
+  );
 }
 
 function getDailySeenFingerprints(
@@ -2249,7 +2459,12 @@ function filterNewsItemsByFingerprints(items, category, seenFingerprints) {
 function buildAiNewsLlmCandidateList(items) {
   return items.map((item, index) => ({
     candidateId: `c${String(index + 1).padStart(2, '0')}`,
-    item,
+    item: {
+      ...item,
+      heatScore: Number.isFinite(item.heatScore) ? item.heatScore : 0,
+      coverageCount: item.coverageCount || 1,
+      sourceCount: item.sourceCount || 1,
+    },
     region: item.region || classifyTechAiNewsRegion(item),
   }));
 }
@@ -2276,9 +2491,20 @@ function formatAiNewsLlmCandidateLine(candidateId, item) {
     !Number.isNaN(item.publishedAt.valueOf())
       ? item.publishedAt.toISOString()
       : '';
+  const region =
+    (item.region || classifyTechAiNewsRegion(item)) === 'domestic'
+      ? '国内'
+      : '国际';
+  const heatScore = Number.isFinite(item.heatScore)
+    ? Math.round(item.heatScore)
+    : 0;
+  const sourceCount = Math.max(item.sourceCount || item.coverageCount || 1, 1);
 
   return [
     `${candidateId}`,
+    region,
+    `热度${heatScore}`,
+    `覆盖${sourceCount}源`,
     item.source || '未知来源',
     publishedAt || '未知时间',
     item.title || item.summary || '',
@@ -2294,23 +2520,19 @@ function buildAiNewsLlmPrompt(candidates, config) {
     config.techAiNewsLimit - domesticTarget,
     0,
   );
-  const internationalCandidates = candidates
-    .filter((candidate) => candidate.region !== 'domestic')
-    .map((candidate) =>
-      formatAiNewsLlmCandidateLine(candidate.candidateId, candidate.item),
-    );
-  const domesticCandidates = candidates
-    .filter((candidate) => candidate.region === 'domestic')
-    .map((candidate) =>
-      formatAiNewsLlmCandidateLine(candidate.candidateId, candidate.item),
-    );
+  const orderedCandidates = [...candidates].sort((left, right) =>
+    compareTechAiNewsItemsByHeat(left.item, right.item),
+  );
 
   return [
-    `你是一名中文科技媒体编辑，请从候选列表中选出最值得播报的 AI 行业新闻，总数最多 ${config.techAiNewsLimit} 条。`,
-    `如果候选数量足够，请尽量输出 ${internationalTarget} 条国际新闻和 ${domesticTarget} 条国内新闻。`,
+    `你是一名中文科技媒体总编，请直接总结过去24小时最热的 AI 行业 Top ${config.techAiNewsLimit}。`,
+    `如果候选数量足够，最终榜单请保持 ${internationalTarget} 条国际新闻和 ${domesticTarget} 条国内新闻。`,
+    '最终结果必须是一个统一热度榜，按热度从高到低排列，不能先把国际或国内新闻分段输出。',
     '只允许根据候选列表挑选，不能编造新事实，不能引入列表外事件。',
+    '候选列表已经按初始热度从高到低排序，并附带热度分、覆盖源数、发布时间和来源，请优先依据这些信息判断过去24小时的热度。',
+    '热度判断优先看事件影响面，再看多源覆盖/传播范围、来源权威度和发布时间新鲜度。',
     '优先选择与大模型、智能体、推理、芯片、算力、AI 基础设施、重要产品发布、企业 AI 战略、重大融资并购、监管和平台能力变化相关的内容。',
-    '排除纯活动预告、泛营销、弱相关消费电子、校园/政务/直播类噪音内容。',
+    '排除纯活动预告、泛营销、弱相关消费电子、校园/政务/直播类噪音内容，也不要选择趋势评论、访谈、观点解读、教程测评或社会泛讨论。',
     '如果候选更像招聘、校招、实习生、种子计划、教程、测评、八卦、反转或社区口水仗，请不要选择。',
     '输出必须是硬新闻快讯口吻，每句都要有明确主体（公司、机构、模型、产品或平台），不要写成评论、宣传、测评感受或行业感想。',
     '请为每条输出一句中文总结，要求：完整、客观、18-36 个汉字优先、不带链接/来源/序号/引号。',
@@ -2319,11 +2541,13 @@ function buildAiNewsLlmPrompt(candidates, config) {
     '禁止直接照抄候选原文长句，禁止输出半句，禁止以“甚至/毕竟/另外/同时/目前/对此/旨在/面向”等承接词开头。',
     '禁止使用惊叹号、口语化表达、招聘话术、营销词、夸张修辞，以及“很能说/很能干/主打/意外揭示/反转”等评论或宣传腔。',
     '如果某条候选无法写成主体明确的硬新闻短句，就不要返回该候选。',
-    '必须严格输出 JSON，对象格式为 {"internationalItems":[{"candidateId":"c01","summary":"..."}],"domesticItems":[{"candidateId":"c08","summary":"..."}]}。',
-    '国际候选：',
-    ...(internationalCandidates.length > 0 ? internationalCandidates : ['无']),
-    '国内候选：',
-    ...(domesticCandidates.length > 0 ? domesticCandidates : ['无']),
+    '必须严格输出 JSON，对象格式为 {"items":[{"candidateId":"c01","summary":"..."}]}，items 数组顺序就是最终热度排名。',
+    '候选列表：',
+    ...(orderedCandidates.length > 0
+      ? orderedCandidates.map((candidate) =>
+          formatAiNewsLlmCandidateLine(candidate.candidateId, candidate.item),
+        )
+      : ['无']),
   ].join('\n');
 }
 
@@ -2433,89 +2657,133 @@ function normalizeAiNewsLlmItems(payload, candidates, config) {
     config.techAiNewsLimit - domesticTarget,
     0,
   );
-  const selectedBuckets = {
-    international: [],
-    domestic: [],
+  const remainingTargetByRegion = {
+    international: internationalTarget,
+    domestic: domesticTarget,
   };
+  const selectedEntries = [];
   const seenCandidateIds = new Set();
   const seenFingerprints = [];
-  const bucketedPayload =
-    Array.isArray(payload?.items) &&
-    !Array.isArray(payload?.internationalItems) &&
-    !Array.isArray(payload?.domesticItems)
-      ? {
-          internationalItems: payload.items.filter((rawItem) => {
-            const candidate = candidateMap.get(
-              String(rawItem?.candidateId || '').trim(),
-            );
-            return candidate?.region !== 'domestic';
-          }),
-          domesticItems: payload.items.filter((rawItem) => {
-            const candidate = candidateMap.get(
-              String(rawItem?.candidateId || '').trim(),
-            );
-            return candidate?.region === 'domestic';
-          }),
-        }
-      : payload || {};
+  const orderedPayloadItems = Array.isArray(payload?.items)
+    ? payload.items
+    : [
+        ...(payload?.internationalItems || []),
+        ...(payload?.domesticItems || []),
+      ].sort((left, right) => {
+        const leftCandidate = candidateMap.get(
+          String(left?.candidateId || '').trim(),
+        );
+        const rightCandidate = candidateMap.get(
+          String(right?.candidateId || '').trim(),
+        );
 
-  for (const [region, rawItems] of [
-    ['international', bucketedPayload.internationalItems || []],
-    ['domestic', bucketedPayload.domesticItems || []],
-  ]) {
-    for (const rawItem of rawItems) {
-      const candidateId = String(rawItem?.candidateId || '').trim();
-      if (!candidateId || seenCandidateIds.has(candidateId)) {
-        continue;
-      }
+        return compareTechAiNewsItemsByHeat(
+          leftCandidate?.item || {},
+          rightCandidate?.item || {},
+        );
+      });
 
-      const candidateEntry = candidateMap.get(candidateId);
-      if (!candidateEntry || candidateEntry.region !== region) {
-        continue;
-      }
+  function pushSelectedEntry(candidateEntry, rawItem = null, llmRank = null) {
+    const region =
+      candidateEntry.region === 'domestic' ? 'domestic' : 'international';
+    const normalizedEntry = rawItem
+      ? normalizeNewsLlmSelectedItem(
+          rawItem,
+          candidateEntry,
+          config,
+          'tech-ai',
+          buildTechAiNewsItem,
+        )
+      : {
+          candidateId: candidateEntry.candidateId,
+          region,
+          item: buildTechAiNewsItem(
+            {
+              ...candidateEntry.item,
+              fingerprint: buildNewsFingerprint(candidateEntry.item, 'tech-ai'),
+              region,
+            },
+            config.newsSummaryMaxLength,
+          ),
+        };
 
-      const normalizedEntry = normalizeNewsLlmSelectedItem(
-        rawItem,
-        candidateEntry,
-        config,
-        'tech-ai',
-        buildTechAiNewsItem,
-      );
-      if (isLowQualityTechAiOutputItem(normalizedEntry.item)) {
-        continue;
-      }
-      const normalizedFingerprint = buildNewsFingerprint(
-        normalizedEntry.item,
-        'tech-ai',
-      );
-      const summaryFingerprint = buildSummaryFingerprint(
-        normalizedEntry.item,
-        'tech-ai',
-      );
+    normalizedEntry.item = {
+      ...normalizedEntry.item,
+      region,
+      llmRank,
+    };
 
-      if (
-        shouldSkipNewsByFingerprint(normalizedFingerprint, seenFingerprints) ||
-        shouldSkipNewsByFingerprint(summaryFingerprint, seenFingerprints)
-      ) {
-        continue;
-      }
+    if (isLowQualityTechAiOutputItem(normalizedEntry.item)) {
+      return false;
+    }
 
-      selectedBuckets[region].push(normalizedEntry);
-      seenCandidateIds.add(candidateId);
-      if (normalizedFingerprint) {
-        seenFingerprints.push(normalizedFingerprint);
-      }
-      if (summaryFingerprint) {
-        seenFingerprints.push(summaryFingerprint);
-      }
+    const normalizedFingerprint = buildNewsFingerprint(
+      normalizedEntry.item,
+      'tech-ai',
+    );
+    const summaryFingerprint = buildSummaryFingerprint(
+      normalizedEntry.item,
+      'tech-ai',
+    );
+
+    if (
+      shouldSkipNewsByFingerprint(normalizedFingerprint, seenFingerprints) ||
+      shouldSkipNewsByFingerprint(summaryFingerprint, seenFingerprints)
+    ) {
+      return false;
+    }
+
+    selectedEntries.push(normalizedEntry);
+    seenCandidateIds.add(candidateEntry.candidateId);
+    remainingTargetByRegion[region] = Math.max(
+      remainingTargetByRegion[region] - 1,
+      0,
+    );
+
+    if (normalizedFingerprint) {
+      seenFingerprints.push(normalizedFingerprint);
+    }
+    if (summaryFingerprint) {
+      seenFingerprints.push(summaryFingerprint);
+    }
+
+    return true;
+  }
+
+  for (const [index, rawItem] of orderedPayloadItems.entries()) {
+    const candidateId = String(rawItem?.candidateId || '').trim();
+    if (!candidateId || seenCandidateIds.has(candidateId)) {
+      continue;
+    }
+
+    const candidateEntry = candidateMap.get(candidateId);
+    if (!candidateEntry) {
+      continue;
+    }
+
+    const region =
+      candidateEntry.region === 'domestic' ? 'domestic' : 'international';
+    const counterpartRegion =
+      region === 'domestic' ? 'international' : 'domestic';
+    const remainingCapacity =
+      config.techAiNewsLimit - selectedEntries.length - 1;
+
+    if (
+      remainingTargetByRegion[region] <= 0 &&
+      remainingCapacity < remainingTargetByRegion[counterpartRegion]
+    ) {
+      continue;
+    }
+
+    pushSelectedEntry(candidateEntry, rawItem, index);
+
+    if (selectedEntries.length >= config.techAiNewsLimit) {
+      break;
     }
   }
 
-  for (const [region, target] of [
-    ['international', internationalTarget],
-    ['domestic', domesticTarget],
-  ]) {
-    if (selectedBuckets[region].length >= target) {
+  for (const region of ['international', 'domestic']) {
+    if (remainingTargetByRegion[region] <= 0) {
       continue;
     }
 
@@ -2527,110 +2795,33 @@ function normalizeAiNewsLlmItems(payload, candidates, config) {
         continue;
       }
 
-      const fallbackFingerprint = buildNewsFingerprint(
-        candidateEntry.item,
-        'tech-ai',
-      );
-      const fallbackItem = buildTechAiNewsItem(
-        {
-          ...candidateEntry.item,
-          fingerprint: fallbackFingerprint,
-          region,
-        },
-        config.newsSummaryMaxLength,
-      );
-      if (isLowQualityTechAiOutputItem(fallbackItem)) {
-        continue;
-      }
-      const fallbackSummaryFingerprint = buildSummaryFingerprint(
-        fallbackItem,
-        'tech-ai',
-      );
-      if (
-        shouldSkipNewsByFingerprint(fallbackFingerprint, seenFingerprints) ||
-        shouldSkipNewsByFingerprint(
-          fallbackSummaryFingerprint,
-          seenFingerprints,
-        )
-      ) {
-        continue;
-      }
-
-      selectedBuckets[region].push({
-        candidateId: candidateEntry.candidateId,
-        region,
-        item: fallbackItem,
-      });
-      seenCandidateIds.add(candidateEntry.candidateId);
-      if (fallbackFingerprint) {
-        seenFingerprints.push(fallbackFingerprint);
-      }
-      if (fallbackSummaryFingerprint) {
-        seenFingerprints.push(fallbackSummaryFingerprint);
-      }
-
-      if (selectedBuckets[region].length >= target) {
-        break;
+      if (pushSelectedEntry(candidateEntry, null, Number.MAX_SAFE_INTEGER)) {
+        if (remainingTargetByRegion[region] <= 0) {
+          break;
+        }
       }
     }
   }
 
-  const selectedItems = [
-    ...selectedBuckets.international.map((entry) => entry.item),
-    ...selectedBuckets.domestic.map((entry) => entry.item),
-  ];
-
-  if (selectedItems.length < config.techAiNewsLimit) {
+  if (selectedEntries.length < config.techAiNewsLimit) {
     for (const candidateEntry of candidates) {
       if (seenCandidateIds.has(candidateEntry.candidateId)) {
         continue;
       }
 
-      const fallbackFingerprint = buildNewsFingerprint(
-        candidateEntry.item,
-        'tech-ai',
-      );
-      const fallbackItem = buildTechAiNewsItem(
-        {
-          ...candidateEntry.item,
-          fingerprint: fallbackFingerprint,
-          region: candidateEntry.region,
-        },
-        config.newsSummaryMaxLength,
-      );
-      if (isLowQualityTechAiOutputItem(fallbackItem)) {
-        continue;
-      }
-      const fallbackSummaryFingerprint = buildSummaryFingerprint(
-        fallbackItem,
-        'tech-ai',
-      );
       if (
-        shouldSkipNewsByFingerprint(fallbackFingerprint, seenFingerprints) ||
-        shouldSkipNewsByFingerprint(
-          fallbackSummaryFingerprint,
-          seenFingerprints,
-        )
+        pushSelectedEntry(candidateEntry, null, Number.MAX_SAFE_INTEGER) &&
+        selectedEntries.length >= config.techAiNewsLimit
       ) {
-        continue;
-      }
-
-      selectedItems.push(fallbackItem);
-      seenCandidateIds.add(candidateEntry.candidateId);
-      if (fallbackFingerprint) {
-        seenFingerprints.push(fallbackFingerprint);
-      }
-      if (fallbackSummaryFingerprint) {
-        seenFingerprints.push(fallbackSummaryFingerprint);
-      }
-
-      if (selectedItems.length >= config.techAiNewsLimit) {
         break;
       }
     }
   }
 
-  return selectedItems;
+  return selectedEntries
+    .map((entry) => entry.item)
+    .sort(compareTechAiNewsItemsByHeat)
+    .slice(0, config.techAiNewsLimit);
 }
 
 function normalizeFinanceNewsLlmItems(payload, candidates, config) {
@@ -2865,18 +3056,7 @@ export async function generateTechAiNewsWithLlm(candidates, config) {
     {
       type: 'object',
       properties: {
-        internationalItems: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              candidateId: { type: 'string' },
-              summary: { type: 'string' },
-            },
-            required: ['candidateId', 'summary'],
-          },
-        },
-        domesticItems: {
+        items: {
           type: 'array',
           items: {
             type: 'object',
@@ -2888,7 +3068,7 @@ export async function generateTechAiNewsWithLlm(candidates, config) {
           },
         },
       },
-      required: ['internationalItems', 'domesticItems'],
+      required: ['items'],
     },
     'AI 新闻',
   );
