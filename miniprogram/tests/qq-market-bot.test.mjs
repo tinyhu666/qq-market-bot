@@ -59,6 +59,19 @@ test('readConfig parses onebot websocket configuration', () => {
   assert.equal(config.onebotHttpUrl, '');
 });
 
+test('readConfig defaults ai llm provider to deepseek only', () => {
+  const config = readConfig({
+    TWELVE_DATA_API_KEY: 'demo-key',
+    QQ_BOT_MODE: 'onebot',
+    ONEBOT_HTTP_URL: 'http://127.0.0.1:3000',
+    ONEBOT_MESSAGE_TYPE: 'group',
+    ONEBOT_TARGET_ID: '123456',
+  });
+
+  assert.equal(config.aiNewsLlmProvider, 'deepseek');
+  assert.equal(config.aiNewsLlmFallbackProvider, 'deepseek');
+});
+
 test('readConfig parses onebot extra targets for group and private delivery', () => {
   const config = readConfig({
     TWELVE_DATA_API_KEY: 'demo-key',

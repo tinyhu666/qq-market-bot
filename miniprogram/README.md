@@ -155,7 +155,7 @@ typings/
 - 国内 AI 候选默认优先使用 `量子位`；`AIBase` 解析器暂时保留在代码里，但已从默认主榜候选源中移除，避免低质量聚合内容污染热榜
 - 财经新闻优先使用 `第一财经` 资讯页与 `36氪快讯` 的标题型源；如果结果不足，再回退到东方财富妙享 `skill` 或公开 `7*24` 快讯接口
 
-AI 新闻会先在这些源之间做一层标题过滤、源权重排序、热度评分和近似去重，再把候选条目交给大模型做最终筛选和一句话总结。默认主模型是 `Gemini`，失败后会自动回退到 `DeepSeek`；如果两者都没配置或都失败，则继续回退到本地规则筛选，保证播报不中断。如果模型生成了明显营销腔、半句、英文残留、口语化、主体不明确、招聘/校招或 clickbait 风格的总结，脚本会自动回退到更稳妥的原标题，并在必要时用其他候选补齐条数；如果总结漏掉了标题里的关键仓库名、产品名、模型名或版本号，也会直接回退标题，避免把事件写成模糊概述。在候选量足够时，`AI Top 10` 会尽量固定为 `7` 条国际 AI 新闻 + `3` 条国内 AI 新闻，最终顺序优先尊重大模型返回的热榜次序，不会在收尾阶段再被本地热度分二次洗牌。
+AI 新闻会先在这些源之间做一层标题过滤、源权重排序、热度评分和近似去重，再把候选条目交给大模型做最终筛选和一句话总结。当前默认只使用 `DeepSeek`；如果未配置或调用失败，则继续回退到本地规则筛选，保证播报不中断。仓库里仍保留 `Gemini` 兼容能力，但只有在你显式填写 `GEMINI_API_KEY` 并把 provider 切回 `gemini` 时才会启用。如果模型生成了明显营销腔、半句、英文残留、口语化、主体不明确、招聘/校招或 clickbait 风格的总结，脚本会自动回退到更稳妥的原标题，并在必要时用其他候选补齐条数；如果总结漏掉了标题里的关键仓库名、产品名、模型名或版本号，也会直接回退标题，避免把事件写成模糊概述。在候选量足够时，`AI Top 10` 会尽量固定为 `7` 条国际 AI 新闻 + `3` 条国内 AI 新闻，最终顺序优先尊重大模型返回的热榜次序，不会在收尾阶段再被本地热度分二次洗牌。
 
 为适配新的国际源链路，脚本额外支持了解析 `Atom feed` 与 `HTML 列表页`：例如 `NVIDIA Technical Blog` 使用 `Atom`，而 `AIBase` 的服务端渲染列表页解析器仍保留在代码中备用。但当前默认 AI 主榜候选源已经移除 `AIBase`，优先保证热榜质量。
 
@@ -190,13 +190,13 @@ cp scripts/qq-market-bot.env.example scripts/qq-market-bot.env
   - `MARKET_NEWS_SUMMARY_MAX_LENGTH`，默认 `48`
   - `MARKET_MESSAGE_MAX_LENGTH`，默认 `1600`
   - `MARKET_AI_LLM_ENABLED`，可选；默认 `1`
-  - `MARKET_AI_LLM_PROVIDER`，可选；默认 `gemini`
+  - `MARKET_AI_LLM_PROVIDER`，可选；默认 `deepseek`
   - `MARKET_AI_LLM_FALLBACK_PROVIDER`，可选；默认 `deepseek`
   - `MARKET_AI_LLM_TIMEOUT_MS`，可选；默认 `45000`
-  - `GEMINI_MODEL`，可选；默认 `gemini-2.5-flash`
-  - `GEMINI_API_KEY`，可选；配置后作为 AI Top 10 的默认大模型
   - `DEEPSEEK_MODEL`，可选；默认 `deepseek-chat`
-  - `DEEPSEEK_API_KEY`，可选；配置后作为 AI Top 10 的备用大模型
+  - `DEEPSEEK_API_KEY`，可选；配置后作为 AI Top 10 的默认大模型
+  - `GEMINI_MODEL`，可选；默认 `gemini-2.5-flash`
+  - `GEMINI_API_KEY`，可选；仅在你手动把 provider 切回 `gemini` 时启用
   - `EASTMONEY_APIKEY`，可选；填写后开启东方财富妙享 `skill`
   - `EASTMONEY_SKILL_QUERY`，可选；默认 `最新财经快讯`
 - OneBot 必填：

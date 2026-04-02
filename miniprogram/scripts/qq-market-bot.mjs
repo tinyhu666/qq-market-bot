@@ -55,7 +55,7 @@ const DEFAULT_NEWS_STATE_FILE = resolve(
 const DAILY_NEWS_STATE_VERSION = 1;
 const DAILY_NEWS_STATE_RETENTION_DAYS = 7;
 const DEFAULT_AI_NEWS_LLM_TIMEOUT_MS = 45000;
-const DEFAULT_AI_NEWS_LLM_PRIMARY_PROVIDER = 'gemini';
+const DEFAULT_AI_NEWS_LLM_PRIMARY_PROVIDER = 'deepseek';
 const DEFAULT_AI_NEWS_LLM_FALLBACK_PROVIDER = 'deepseek';
 const DEFAULT_AI_NEWS_GEMINI_MODEL = 'gemini-2.5-flash';
 const DEFAULT_AI_NEWS_DEEPSEEK_MODEL = 'deepseek-chat';
@@ -4737,14 +4737,14 @@ function printHelp() {
   TWELVE_DATA_API_KEY
   QQ_BOT_MODE=onebot | qq-official
 
-AI 新闻 LLM（可选，默认 Gemini，失败后回退 DeepSeek）：
+AI 新闻 LLM（可选，默认 DeepSeek）：
   MARKET_AI_LLM_ENABLED=1 | 0
-  MARKET_AI_LLM_PROVIDER=gemini | deepseek
+  MARKET_AI_LLM_PROVIDER=deepseek | gemini
   MARKET_AI_LLM_FALLBACK_PROVIDER=deepseek | gemini
-  GEMINI_API_KEY
-  GEMINI_MODEL
   DEEPSEEK_API_KEY
   DEEPSEEK_MODEL
+  GEMINI_API_KEY
+  GEMINI_MODEL
   MARKET_AI_LLM_TIMEOUT_MS
 
 OneBot 模式：

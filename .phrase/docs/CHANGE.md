@@ -188,4 +188,11 @@
 - change185 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task034，记录只保留单条消息内去重的需求与验证方式 | 关联:task034
 - change186 日期:2026-04-02 | 文件:/home/ubuntu/stock-bot/scripts/qq-market-bot.env | 操作:Modify | 影响:OneBot 接收目标 | 说明:清空 `ONEBOT_EXTRA_TARGETS`，仅保留群 `91637082` 作为唯一播报目标，暂时移除两个私聊 QQ 以降低风控风险 | 关联:task035
 - change187 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task035，记录 OneBot 推送暂时只保留群聊目标的运营调整 | 关联:task035
+- change188 日期:2026-04-02 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 新闻默认模型配置 | 说明:将 AI 新闻 LLM 默认 provider 与 fallback 都切为 DeepSeek，并同步更新脚本帮助文案中的默认口径 | 关联:task036
+- change189 日期:2026-04-02 | 文件:miniprogram/scripts/qq-market-bot.env.example | 操作:Modify | 影响:示例配置 | 说明:将示例环境变量改为 DeepSeek-only，并把 Gemini 配置调整为手动切换时才启用的注释项 | 关联:task036
+- change190 日期:2026-04-02 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:将 AI 新闻 LLM 的默认说明改为 DeepSeek-only，并明确 Gemini 仅作为手动切回时的兼容 provider | 关联:task036
+- change191 日期:2026-04-02 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq-market-bot.env | 操作:Modify | 影响:线上 AI 新闻模型配置 | 说明:清空线上 Gemini API key，并将主 provider 与 fallback 都切为 DeepSeek，避免继续触发 Gemini 配额和双 provider 调用 | 关联:task036
+- change192 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将默认 AI 模型链路从 Gemini 主、DeepSeek 备更新为默认 DeepSeek-only | 关联:task036
+- change193 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:同步更新 AI 模型默认链路优先级与 DeepSeek-only 风险说明 | 关联:task036
+- change194 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task036，记录移除 Gemini API key 并切为 DeepSeek-only 的运维调整 | 关联:task036
 - change168 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充联想/高德的国内区域识别断言，并将促销文案样例纳入 AI 候选过滤测试 | 关联:task031
