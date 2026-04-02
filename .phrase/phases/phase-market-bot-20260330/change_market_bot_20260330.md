@@ -168,3 +168,20 @@ change165 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/pl
 change166 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task031，记录过去24小时 AI 热榜、7+3 配比和总热度混排需求 | 关联:task031
 change167 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 热榜质量与区域识别 | 说明:补充联想、高德等国内公司关键词，并继续收紧会员优惠、限时折扣类促销文案过滤，避免 7+3 配比失真和热榜混入平台活动广告 | 关联:task031
 change168 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充联想/高德的国内区域识别断言，并将促销文案样例纳入 AI 候选过滤测试 | 关联:task031
+change169 日期:2026-04-01 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 热榜最终排序与摘要回退 | 说明:让 AI Top 10 在最终输出时优先保持大模型返回的热榜顺序，并在摘要漏掉仓库名、产品名、模型名或版本号时自动回退标题 | 关联:task032
+change170 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充 AI 热榜顺序不再被本地热度分洗牌，以及摘要遗漏关键仓库名时回退标题的回归测试 | 关联:task032
+change171 日期:2026-04-01 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充 AI 热榜最终顺序优先尊重大模型返回结果，以及摘要遗漏关键实体名时自动回退标题的说明 | 关联:task032
+change172 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:新增 AI 热榜最终顺位保持和关键仓库名/模型名保留要求 | 关联:task032
+change173 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 AI 热榜收尾阶段二次重排与关键实体名丢失的风险和优先级 | 关联:task032
+change174 日期:2026-04-01 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task032，记录 AI 热榜顺序保持与关键实体名保留需求 | 关联:task032
+change175 日期:2026-04-02 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 默认候选源 | 说明:将 AIBase 从默认 AI 主榜候选源列表中移除，仅保留 HTML 列表页解析器备用，优先保证 AI Top 10 质量 | 关联:task033
+change176 日期:2026-04-02 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:同步更新 AI 新闻默认源说明，明确 AIBase 默认禁用、仅保留备用解析器 | 关联:task033
+change177 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将 AIBase 调整为备用解析能力，不再属于默认主榜候选源组合 | 关联:task033
+change178 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充质量优先时可直接移除低质量聚合补充源，并记录 7+3 可能短时回填的风险 | 关联:task033
+change179 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task033，记录 AIBase 默认移除和质量优先策略 | 关联:task033
+change180 日期:2026-04-02 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:新闻去重主流程 | 说明:移除当天跨时段新闻状态过滤与写回，仅保留单轮消息内和跨栏目去重，避免热点在后续时段被跳过 | 关联:task034
+change181 日期:2026-04-02 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:将跨时段去重测试改为“不同时间段允许重复热点”，并断言不再写入当天新闻状态 | 关联:task034
+change182 日期:2026-04-02 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:更新新闻去重说明为仅限单条最终消息内，不再进行跨时段去重 | 关联:task034
+change183 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将新闻去重口径调整为只在单轮消息内生效，明确不同时间段允许重复热点 | 关联:task034
+change184 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:将去重优先级改为单轮消息内去重，并记录跨时段重复是可接受取舍 | 关联:task034
+change185 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task034，记录只保留单条消息内去重的需求与验证方式 | 关联:task034

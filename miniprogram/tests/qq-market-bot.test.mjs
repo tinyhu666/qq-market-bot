@@ -684,7 +684,7 @@ test('selectFinanceNewsItems filters calendar noise, clickbait, and duplicate he
   );
 });
 
-test('runMarketPush filters news already sent earlier the same day', async () => {
+test('runMarketPush allows repeated hot news across different push times', async () => {
   let storedState = {
     version: 1,
     days: {
@@ -765,19 +765,12 @@ test('runMarketPush filters news already sent earlier the same day', async () =>
     (section) => section.category === 'finance',
   );
 
-  assert.equal(techSection.items.length, 1);
-  assert.match(
-    techSection.items[0].summary,
-    /Anthropic 发布新一代 Claude 模型/u,
-  );
-  assert.equal(financeSection.items.length, 0);
-  assert.equal(financeSection.emptyText, '今天暂无新的新闻。');
-  assert.doesNotMatch(result.message, /OpenAI 扩展 Responses API/u);
+  assert.equal(techSection.items.length, 2);
+  assert.match(result.message, /OpenAI 扩展 Responses API/u);
   assert.match(result.message, /Anthropic 发布新一代 Claude 模型/u);
-  assert.match(result.message, /今天暂无新的新闻。/u);
-  assert.ok(writtenState);
-  assert.equal(writtenState.days['2026-04-01']['tech-ai'].length, 2);
-  assert.equal(writtenState.days['2026-04-01'].finance.length, 1);
+  assert.equal(financeSection.items.length, 1);
+  assert.match(result.message, /A股成交额突破1万亿元/u);
+  assert.equal(writtenState, null);
 });
 
 test('runMarketPush removes duplicate stories between ai and finance sections', async () => {
@@ -912,7 +905,7 @@ test('generateTechAiNewsWithLlm uses Gemini as primary provider', async () => {
         },
       ],
       {
-        techAiNewsLimit: 2,
+        techAiNewsLimit: 10,
         newsSummaryMaxLength: 48,
         aiNewsLlmProvider: 'gemini',
         aiNewsLlmFallbackProvider: 'deepseek',
@@ -1087,6 +1080,94 @@ test('generateTechAiNewsWithLlm keeps 7 international and 3 domestic items when 
         'Google 推出新一代多模态模型',
         '百度发布文心新能力，推进智能体落地',
       ],
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateTechAiNewsWithLlm preserves llm hotlist order for selected items', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    items: [
+                      {
+                        candidateId: 'c02',
+                        summary:
+                          'Anthropic 发布 Claude Code 更新，强化开发者工作流。',
+                      },
+                      {
+                        candidateId: 'c01',
+                        summary:
+                          'OpenAI 发布 Responses API 更新，扩展智能体调用能力。',
+                      },
+                    ],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const items = await generateTechAiNewsWithLlm(
+      [
+        {
+          candidateId: 'c01',
+          region: 'international',
+          item: {
+            title: 'OpenAI 发布 Responses API 更新并扩展智能体调用能力',
+            summary: 'OpenAI 发布 Responses API 更新并扩展智能体调用能力。',
+            source: 'OpenAI News',
+            sourcePriority: 10,
+            publishedAt: new Date('2026-04-01T10:00:00+08:00'),
+            heatScore: 220,
+          },
+        },
+        {
+          candidateId: 'c02',
+          region: 'international',
+          item: {
+            title: 'Anthropic 发布 Claude Code 更新并强化开发者工作流',
+            summary: 'Anthropic 发布 Claude Code 更新并强化开发者工作流。',
+            source: 'Anthropic',
+            sourcePriority: 8,
+            publishedAt: new Date('2026-04-01T11:00:00+08:00'),
+            heatScore: 140,
+          },
+        },
+      ],
+      {
+        techAiNewsLimit: 10,
+        newsSummaryMaxLength: 48,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-chat',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(items.length, 2);
+    assert.equal(
+      items[0].title,
+      'Anthropic 发布 Claude Code 更新并强化开发者工作流',
+    );
+    assert.equal(
+      items[1].title,
+      'OpenAI 发布 Responses API 更新并扩展智能体调用能力',
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -1527,6 +1608,140 @@ test('generateTechAiNewsWithLlm falls back when llm summary is vague corporate s
     assert.equal(items.length, 1);
     assert.equal(/本财年|领先地位/u.test(items[0].summary), false);
     assert.match(items[0].summary, /联想宣布新财年转向 AI 交付/u);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateTechAiNewsWithLlm falls back when llm summary drops key repository name', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    items: [
+                      {
+                        candidateId: 'c01',
+                        summary:
+                          'Anthropic 发送 DMCA 通知，大规模下架 8100 个源码仓库。',
+                      },
+                    ],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const items = await generateTechAiNewsWithLlm(
+      [
+        {
+          candidateId: 'c01',
+          region: 'international',
+          item: {
+            title: 'Anthropic 发送 DMCA 通知，下架超 8100 个代码仓库',
+            summary:
+              'Anthropic就Claude代码泄露事件发起法律行动，GitHub已删除主仓库及超8100个相关分支，成为AI行业近年最大规模代码版权清理。',
+            llmSummary:
+              'Anthropic就Claude代码泄露事件发起法律行动，GitHub已删除主仓库及超8100个相关分支，成为AI行业近年最大规模代码版权清理。',
+            source: 'VentureBeat AI',
+            sourcePriority: 7,
+            publishedAt: new Date('2026-04-01T12:00:00+08:00'),
+            heatScore: 180,
+          },
+        },
+      ],
+      {
+        techAiNewsLimit: 1,
+        newsSummaryMaxLength: 80,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-chat',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(items.length, 1);
+    assert.match(items[0].summary, /Claude Code/u);
+    assert.match(items[0].summary, /8100/u);
+    assert.doesNotMatch(items[0].summary, /删除主仓库及 8100/u);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateTechAiNewsWithLlm falls back when llm summary reads like strategy brochure copy', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    items: [
+                      {
+                        candidateId: 'c01',
+                        summary:
+                          '未来所有产品、服务及流程都将以人工智能为核心重构，2024年被视为混合式AI的实战年。',
+                      },
+                    ],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const items = await generateTechAiNewsWithLlm(
+      [
+        {
+          candidateId: 'c01',
+          region: 'domestic',
+          item: {
+            title: '联想集团宣布全面转型 AI 原生公司，开启 AI 交付新财年',
+            summary: '联想集团宣布全面转型 AI 原生公司，开启 AI 交付新财年。',
+            source: '量子位',
+            sourcePriority: 7,
+            publishedAt: new Date('2026-04-01T13:00:00+08:00'),
+            heatScore: 110,
+          },
+        },
+      ],
+      {
+        techAiNewsLimit: 1,
+        newsSummaryMaxLength: 64,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-chat',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(items.length, 1);
+    assert.match(items[0].summary, /联想集团/u);
+    assert.doesNotMatch(items[0].summary, /未来所有产品/u);
   } finally {
     globalThis.fetch = originalFetch;
   }
