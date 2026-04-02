@@ -185,3 +185,5 @@ change182 日期:2026-04-02 | 文件:miniprogram/README.md | 操作:Modify | 影
 change183 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将新闻去重口径调整为只在单轮消息内生效，明确不同时间段允许重复热点 | 关联:task034
 change184 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:将去重优先级改为单轮消息内去重，并记录跨时段重复是可接受取舍 | 关联:task034
 change185 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task034，记录只保留单条消息内去重的需求与验证方式 | 关联:task034
+change186 日期:2026-04-02 | 文件:/home/ubuntu/stock-bot/scripts/qq-market-bot.env | 操作:Modify | 影响:OneBot 接收目标 | 说明:清空 `ONEBOT_EXTRA_TARGETS`，仅保留群 `91637082` 作为唯一播报目标，暂时移除两个私聊 QQ 以降低风控风险 | 关联:task035
+change187 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task035，记录 OneBot 推送暂时只保留群聊目标的运营调整 | 关联:task035
