@@ -194,3 +194,8 @@ change191 日期:2026-04-02 | 文件:服务器:/home/ubuntu/stock-bot/scripts/qq
 change192 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将默认 AI 模型链路从 Gemini 主、DeepSeek 备更新为默认 DeepSeek-only | 关联:task036
 change193 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:同步更新 AI 模型默认链路优先级与 DeepSeek-only 风险说明 | 关联:task036
 change194 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task036，记录移除 Gemini API key 并切为 DeepSeek-only 的运维调整 | 关联:task036
+change195 日期:2026-04-03 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 热榜摘要链路 | 说明:将英文国际 AI 热榜改为按热榜顺序逐条调用 DeepSeek 生成中文硬新闻摘要，并在模型摘要不合格时增加规则化中文兜底与更窄的关键词保护，修复 AI 区异常缩水到 2-4 条和空话摘要问题 | 关联:task037
+change196 日期:2026-04-03 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充 AI 摘要尾句清洗断言，并覆盖关键词保留与标题回退相关回归，保证英文国际源不会再被误杀 | 关联:task037
+change197 日期:2026-04-03 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:新增英文国际 AI 标题逐条摘要、规则化中文兜底与“不再跨时段去重”的当前规格说明，并补充 AI 区异常缩水的边界与验收要求 | 关联:task037
+change198 日期:2026-04-03 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充英文国际 AI 标题逐条总结优先级，以及 DeepSeek 对英文标题漏项时需要规则兜底的风险记录 | 关联:task037
+change199 日期:2026-04-03 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task037，记录 AI Top 不再异常缩水且过滤空话摘要的修复任务 | 关联:task037

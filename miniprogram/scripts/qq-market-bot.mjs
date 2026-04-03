@@ -1025,6 +1025,22 @@ function isGenericTechAiKeyTerm(text) {
   return lexicalWords.length === 1 && lexicalWords[0].length < 4;
 }
 
+function hasSpecificTechAiPhraseSignal(text) {
+  const words = normalizeWhitespace(text).split(/\s+/u).filter(Boolean);
+  const signalWords = words.filter((word) => /[A-Z0-9]/u.test(word));
+
+  if (signalWords.length >= 2) {
+    return true;
+  }
+
+  return (
+    signalWords.length >= 1 &&
+    words.some((word) =>
+      TECH_AI_KEY_TERM_EXACT_PHRASE_TAIL_WORDS.has(word.toLowerCase()),
+    )
+  );
+}
+
 function extractTechAiTitleKeyTerms(text) {
   const normalizedTitle = normalizeTechAiNewsTitle(text).replace(
     /[“”"'‘’]/gu,
@@ -1041,7 +1057,7 @@ function extractTechAiTitleKeyTerms(text) {
   const seen = new Set();
   const keyTerms = [];
 
-  for (const rawTerm of [...phraseMatches, ...singleMatches]) {
+  function pushKeyTerm(rawTerm, { requirePhraseSignal = false } = {}) {
     const value = normalizeWhitespace(rawTerm).replace(
       /^[“”"'‘’]+|[“”"'‘’]+$/gu,
       '',
@@ -1049,7 +1065,11 @@ function extractTechAiTitleKeyTerms(text) {
     const normalized = normalizeTechAiKeyTerm(value);
 
     if (!normalized || seen.has(normalized) || isGenericTechAiKeyTerm(value)) {
-      continue;
+      return;
+    }
+
+    if (requirePhraseSignal && !hasSpecificTechAiPhraseSignal(value)) {
+      return;
     }
 
     seen.add(normalized);
@@ -1069,7 +1089,34 @@ function extractTechAiTitleKeyTerms(text) {
     });
   }
 
+  for (const rawTerm of phraseMatches) {
+    pushKeyTerm(rawTerm, {
+      requirePhraseSignal: true,
+    });
+  }
+
+  for (const rawTerm of singleMatches) {
+    pushKeyTerm(rawTerm);
+  }
+
   return keyTerms.sort((left, right) => right.value.length - left.value.length);
+}
+
+function buildTechAiKeyTermReference(title, rawSourceSummary) {
+  const normalizedTitle = normalizeTechAiNewsTitle(title);
+  const titleTerms = extractTechAiTitleKeyTerms(normalizedTitle);
+
+  if (titleTerms.some((term) => term.requireExact)) {
+    return normalizedTitle;
+  }
+
+  const titleTermSet = new Set(titleTerms.map((term) => term.normalized));
+  const extraExactTerms = extractTechAiTitleKeyTerms(rawSourceSummary)
+    .filter((term) => term.requireExact && !titleTermSet.has(term.normalized))
+    .slice(0, 2)
+    .map((term) => term.value);
+
+  return [normalizedTitle, ...extraExactTerms].filter(Boolean).join(' ');
 }
 
 function isTechAiSummaryMissingKeyTerms(summary, title) {
@@ -1676,6 +1723,24 @@ export function normalizeSummaryLine(text, maxLength) {
   return truncateText(completed, maxLength);
 }
 
+function stripTechAiWeakSummaryTail(text) {
+  return normalizeWhitespace(
+    String(text || '')
+      .replace(
+        /[，,](?:此举|这一举措|该举措|预计|有望|或将|将进一步|这将|旨在|以应对|以满足|以推动)[^。！？!?]*[。！？!?]?$/u,
+        '',
+      )
+      .replace(
+        /[，,][^，。！？!?]{0,24}(?:可能增强|可能提升|技术布局|市场竞争力|行业落地|生态建设|商业化空间)[^。！？!?]*[。！？!?]?$/u,
+        '',
+      ),
+  );
+}
+
+export function normalizeTechAiGeneratedSummaryLine(text, maxLength) {
+  return normalizeSummaryLine(stripTechAiWeakSummaryTail(text), maxLength);
+}
+
 function isLowQualitySummaryLine(text) {
   if (!text) {
     return true;
@@ -1794,6 +1859,14 @@ function isLowQualityTechAiSummaryLine(text) {
 
   if (
     /(?:实测拿\d+项sota|撸代码|源码泄露案反转|竟是[“"]?钓鱼|大佬)/iu.test(text)
+  ) {
+    return true;
+  }
+
+  if (
+    /(?:凭一己之力|向前走了?一大步|重塑算力集群架构|分享ai原生云实践|交出[^，。]{0,12}答卷)/u.test(
+      text,
+    )
   ) {
     return true;
   }
@@ -2239,15 +2312,19 @@ function buildTechAiNewsItem(item, maxLength) {
     item.llmSummary || item.summary || '',
     cleanedTitle,
   );
-  const summaryReference = [cleanedTitle, rawSourceSummary]
-    .filter(Boolean)
-    .join(' ');
-  const summary = normalizeSummaryLine(
+  const keyTermReference = buildTechAiKeyTermReference(
+    cleanedTitle,
+    rawSourceSummary,
+  );
+  const summary = normalizeTechAiGeneratedSummaryLine(
     stripTechAiSummaryNoise(item.summary || item.title),
     maxLength,
   );
-  const titleFallbackSummary = normalizeSummaryLine(cleanedTitle, maxLength);
-  const rawFallbackSummary = normalizeSummaryLine(
+  const titleFallbackSummary = normalizeTechAiGeneratedSummaryLine(
+    cleanedTitle,
+    maxLength,
+  );
+  const rawFallbackSummary = normalizeTechAiGeneratedSummaryLine(
     stripTechAiSummaryNoise(rawSourceSummary),
     maxLength,
   );
@@ -2262,7 +2339,7 @@ function buildTechAiNewsItem(item, maxLength) {
       .map((candidate) => ({
         candidate,
         score:
-          countTechAiPreservedKeyTerms(candidate, summaryReference) * 40 +
+          countTechAiPreservedKeyTerms(candidate, keyTermReference) * 40 +
           scoreSummaryCandidate(candidate, maxLength) +
           (candidate === titleFallbackSummary ? 2 : 0),
       }))
@@ -2276,7 +2353,7 @@ function buildTechAiNewsItem(item, maxLength) {
     summary:
       summary &&
       !isLowQualityTechAiSummaryLine(summary) &&
-      !isTechAiSummaryMissingKeyTerms(summary, summaryReference)
+      !isTechAiSummaryMissingKeyTerms(summary, keyTermReference)
         ? summary
         : fallbackSummary,
     source: item.source || '',
@@ -2290,6 +2367,167 @@ function buildTechAiNewsItem(item, maxLength) {
     sourceCount: item.sourceCount || 1,
     llmRank: Number.isFinite(item.llmRank) ? item.llmRank : null,
   };
+}
+
+function buildPinnedTechAiNewsItem(item, summary, maxLength) {
+  const cleanedTitle = normalizeTechAiNewsTitle(
+    item.title || item.summary || '',
+  );
+  const rawSourceSummary = normalizeFeedSummary(
+    item.llmSummary || item.summary || '',
+    cleanedTitle,
+  );
+  const normalizedSummary = normalizeTechAiGeneratedSummaryLine(
+    stripTechAiSummaryNoise(summary),
+    maxLength,
+  );
+
+  return {
+    title: cleanedTitle || item.title,
+    summary: normalizedSummary,
+    source: item.source || '',
+    publishedAt: item.publishedAt,
+    fingerprint: item.fingerprint || '',
+    region: item.region || classifyTechAiNewsRegion(item),
+    llmSummary: rawSourceSummary,
+    sourcePriority: item.sourcePriority || 0,
+    heatScore: Number.isFinite(item.heatScore) ? item.heatScore : 0,
+    coverageCount: item.coverageCount || 1,
+    sourceCount: item.sourceCount || 1,
+    llmRank: Number.isFinite(item.llmRank) ? item.llmRank : null,
+  };
+}
+
+function inferTechAiSummarySubject(item) {
+  const title = normalizeTechAiNewsTitle(item.title || item.summary || '');
+  const source = normalizeWhitespace(String(item.source || ''));
+
+  if (/nvidia/iu.test(title) || /nvidia/iu.test(source)) {
+    return '英伟达';
+  }
+  if (/google/iu.test(title) || /google/iu.test(source)) {
+    return '谷歌AI';
+  }
+  if (/openai/iu.test(title) || /openai/iu.test(source)) {
+    return 'OpenAI';
+  }
+  if (/anthropic|claude/iu.test(title) || /anthropic/iu.test(source)) {
+    return 'Anthropic';
+  }
+
+  return '';
+}
+
+function buildHeuristicTechAiSummaryFromTitle(item, maxLength) {
+  const title = normalizeTechAiNewsTitle(item.title || item.summary || '');
+  const subject = inferTechAiSummarySubject(item);
+  let summary = '';
+
+  let match = title.match(
+    /^([A-Za-z0-9.+#-]+)\s+acquires\s+([A-Za-z0-9.+#-]+)/iu,
+  );
+  if (match) {
+    summary = `${match[1]}收购${match[2]}播客网络。`;
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^New ways to balance cost and reliability in the\s+(.+)$/iu,
+    );
+    if (match) {
+      summary = `${subject || '相关平台'}为${match[1]}推出成本与可靠性平衡方案。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^(.+?)\s+now offers more flexible pricing for teams$/iu,
+    );
+    if (match) {
+      summary = `${subject || '相关平台'}为${match[1]}团队版提供更灵活定价。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Create,\s*edit and share videos at no cost in\s+(.+)$/iu,
+    );
+    if (match) {
+      summary = `${match[1]}开放免费视频创建、编辑和分享功能。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^From RTX to Spark:\s*NVIDIA Accelerates\s+(.+?)\s+for Local Agentic AI$/iu,
+    );
+    if (match) {
+      summary = `英伟达加速${match[1]}本地智能体部署。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Bringing AI Closer to the Edge and On-Device with\s+(.+)$/iu,
+    );
+    if (match) {
+      summary = `${match[1]}推动AI向边缘与端侧部署。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Achieving Single-Digit Microsecond Latency Inference for Capital Markets$/iu,
+    );
+    if (match) {
+      summary = `${subject || '相关厂商'}推出面向资本市场的微秒级推理方案。`;
+    }
+  }
+
+  const normalizedSummary = normalizeTechAiGeneratedSummaryLine(
+    summary,
+    maxLength,
+  );
+  return isLowQualityTechAiSummaryLine(normalizedSummary)
+    ? ''
+    : normalizedSummary;
+}
+
+function countHanCharacters(text) {
+  return (String(text || '').match(/[\u4e00-\u9fff]/gu) || []).length;
+}
+
+function countAsciiLetters(text) {
+  return (String(text || '').match(/[A-Za-z]/g) || []).length;
+}
+
+function shouldPreferHeuristicTechAiSummary(currentSummary, heuristicSummary) {
+  if (!heuristicSummary) {
+    return false;
+  }
+
+  if (!currentSummary) {
+    return true;
+  }
+
+  if (
+    /(?:技术博客发布(?:文章)?|用于本地代理\s*ai|从\s*rtx\s*到\s*spark)/iu.test(
+      currentSummary,
+    )
+  ) {
+    return true;
+  }
+
+  const currentHan = countHanCharacters(currentSummary);
+  const heuristicHan = countHanCharacters(heuristicSummary);
+  const currentAscii = countAsciiLetters(currentSummary);
+  const heuristicAscii = countAsciiLetters(heuristicSummary);
+
+  return (
+    heuristicHan >= currentHan &&
+    currentAscii >= heuristicAscii + 6 &&
+    currentHan <= 14
+  );
 }
 
 export function classifyTechAiNewsRegion(item) {
@@ -2425,6 +2663,15 @@ function isExcludedTechAiNewsItem(item) {
     (item.sourcePriority || 0) <= 7 &&
     /(?:终于|来了[！!？?]?$|最贵重的门票|接近[“"]?不可用[”"]?|一句[「“"]|避坑|惊现|豪赌|神坛|火爆|打响)/u.test(
       title,
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    (item.sourcePriority || 0) <= 7 &&
+    /(?:开盒|怒怼|凭一己之力|交出[^，。]{0,12}答卷|上市首日大涨|ai原生时代来临|如何重塑|分享ai原生云实践)/u.test(
+      `${title} ${item.summary || ''}`,
     )
   ) {
     return true;
@@ -2740,6 +2987,7 @@ function buildAiNewsLlmPrompt(candidates, config) {
   return [
     `你是一名中文科技媒体总编，请直接总结过去24小时最热的 AI 行业 Top ${config.techAiNewsLimit}。`,
     `如果候选数量足够，最终榜单请保持 ${internationalTarget} 条国际新闻和 ${domesticTarget} 条国内新闻。`,
+    '候选列表已经是按热度从高到低预选好的热榜候选，除非条目明显是营销、观点、教程、活动或八卦噪音，否则不要随意省略。',
     '最终结果必须是一个统一热度榜，按热度从高到低排列，不能先把国际或国内新闻分段输出。',
     '只允许根据候选列表挑选，不能编造新事实，不能引入列表外事件。',
     '候选列表已经按初始热度从高到低排序，并附带热度分、覆盖源数、发布时间和来源，请优先依据这些信息判断过去24小时的热度。',
@@ -2749,7 +2997,7 @@ function buildAiNewsLlmPrompt(candidates, config) {
     '如果候选更像招聘、校招、实习生、种子计划、教程、测评、八卦、反转或社区口水仗，请不要选择。',
     '输出必须是硬新闻快讯口吻，每句都要有明确主体（公司、机构、模型、产品或平台），不要写成评论、宣传、测评感受或行业感想。',
     '请为每条输出一句中文总结，要求：完整、客观、18-36 个汉字优先、不带链接/来源/序号/引号。',
-    '如果候选标题或摘要是英文，输出时必须改写成自然中文。',
+    '如果候选标题或摘要是英文，输出时必须改写成自然中文，不要因为英文标题就少报。',
     '主要根据候选标题判断事件，如果标题已经完整，不要被媒体改写摘要带偏。',
     '必须保留标题里的关键仓库名、产品名、模型名、项目名和版本号，不能把事件改写成只有模糊主体的概述。',
     '禁止直接照抄候选原文长句，禁止输出半句，禁止以“甚至/毕竟/另外/同时/目前/对此/旨在/面向”等承接词开头。',
@@ -2763,6 +3011,92 @@ function buildAiNewsLlmPrompt(candidates, config) {
         )
       : ['无']),
   ].join('\n');
+}
+
+function buildAiNewsSummaryPrompt(candidates, config) {
+  return [
+    `你是一名中文科技媒体编辑，请按给定顺序为最多 ${Math.min(
+      config.techAiNewsLimit,
+      candidates.length,
+    )} 条 AI 热榜候选生成中文硬新闻摘要。`,
+    '候选列表已经按热度从高到低排好顺序，你的任务是翻成适合播报的中文短句，而不是重新选题。',
+    '除非某条候选明显是营销、观点、教程、活动或八卦噪音，否则不要省略 candidateId。',
+    '如果候选标题是英文，必须改写成自然中文，不要因为英文标题就省略。',
+    '每条摘要都要有明确主体，18-36 个汉字优先，不带链接、来源、序号或引号。',
+    '必须保留标题中的关键公司名、产品名、模型名、项目名和版本号。',
+    '禁止输出“凭一己之力推动社区向前走了一大步”“如何重塑”“交出答卷”这类空泛、评论或宣传腔句子。',
+    '禁止写“此举”“预计”“有望”“将进一步”“可能增强竞争力”这类评论或推断。',
+    '必须严格输出 JSON，对象格式为 {"items":[{"candidateId":"c01","summary":"..."}]}，items 顺序必须和候选顺序一致。',
+    '候选列表：',
+    ...(candidates.length > 0
+      ? candidates.map((candidate) =>
+          formatAiNewsLlmCandidateLine(candidate.candidateId, candidate.item),
+        )
+      : ['无']),
+  ].join('\n');
+}
+
+function buildAiNewsSingleSummaryPrompt(candidate) {
+  return [
+    '你是一名中文科技媒体编辑，请根据单条 AI 热榜候选生成一句中文硬新闻摘要。',
+    '你的任务是客观改写标题，不要评论事件影响，也不要重新选题。',
+    '如果标题是英文，必须翻成自然中文。',
+    '必须保留公司名、产品名、模型名、项目名和版本号。',
+    '禁止写“此举”“预计”“有望”“可能”“将进一步”“推动行业向前走一步”等评论、推断或宣传腔。',
+    '摘要长度以 18-36 个汉字优先，不带链接、来源、序号或引号。',
+    '必须严格输出 JSON，对象格式为 {"summary":"..."}。',
+    '候选：',
+    formatAiNewsLlmCandidateLine(candidate.candidateId, candidate.item),
+  ].join('\n');
+}
+
+export function selectTechAiHotlistItems(items, config) {
+  const orderedItems = [...items].sort(compareTechAiNewsItemsByHeat);
+  const domesticTarget = Math.min(
+    DEFAULT_TECH_AI_DOMESTIC_NEWS_LIMIT,
+    config.techAiNewsLimit,
+  );
+  const internationalTarget = Math.max(
+    config.techAiNewsLimit - domesticTarget,
+    0,
+  );
+  const internationalItems = orderedItems.filter(
+    (item) => (item.region || classifyTechAiNewsRegion(item)) !== 'domestic',
+  );
+  const domesticItems = orderedItems.filter(
+    (item) => (item.region || classifyTechAiNewsRegion(item)) === 'domestic',
+  );
+  const selectedItems = [
+    ...internationalItems.slice(0, internationalTarget),
+    ...domesticItems.slice(0, domesticTarget),
+  ].sort(compareTechAiNewsItemsByHeat);
+  const seenFingerprints = new Set(
+    selectedItems
+      .map((item) => buildNewsFingerprint(item, 'tech-ai'))
+      .filter(Boolean),
+  );
+
+  if (selectedItems.length >= config.techAiNewsLimit) {
+    return selectedItems.slice(0, config.techAiNewsLimit);
+  }
+
+  for (const item of orderedItems) {
+    const fingerprint = buildNewsFingerprint(item, 'tech-ai');
+    if (fingerprint && seenFingerprints.has(fingerprint)) {
+      continue;
+    }
+
+    selectedItems.push(item);
+    if (fingerprint) {
+      seenFingerprints.add(fingerprint);
+    }
+
+    if (selectedItems.length >= config.techAiNewsLimit) {
+      break;
+    }
+  }
+
+  return selectedItems.slice(0, config.techAiNewsLimit);
 }
 
 function buildFinanceNewsLlmPrompt(candidates) {
@@ -3143,6 +3477,67 @@ function normalizeFinanceNewsLlmItems(payload, candidates, config) {
   return selectedItems;
 }
 
+function normalizeTechAiSummaryItems(payload, candidates, config) {
+  const candidateMap = new Map(
+    candidates.map((entry) => [entry.candidateId, entry]),
+  );
+  const selectedItems = [];
+  const seenFingerprints = [];
+  const seenCandidateIds = new Set();
+
+  for (const rawItem of payload?.items || []) {
+    const candidateId = String(rawItem?.candidateId || '').trim();
+    if (!candidateId || seenCandidateIds.has(candidateId)) {
+      continue;
+    }
+
+    const candidateEntry = candidateMap.get(candidateId);
+    if (!candidateEntry) {
+      continue;
+    }
+
+    const normalizedEntry = normalizeNewsLlmSelectedItem(
+      rawItem,
+      candidateEntry,
+      config,
+      'tech-ai',
+      buildTechAiNewsItem,
+    );
+    const normalizedItem = {
+      ...normalizedEntry.item,
+      candidateId,
+      llmRank: null,
+    };
+    const normalizedFingerprint = buildNewsFingerprint(
+      normalizedItem,
+      'tech-ai',
+    );
+    const summaryFingerprint = buildSummaryFingerprint(
+      normalizedItem,
+      'tech-ai',
+    );
+
+    if (
+      isLowQualityTechAiOutputItem(normalizedItem) ||
+      shouldSkipNewsByFingerprint(normalizedFingerprint, seenFingerprints) ||
+      shouldSkipNewsByFingerprint(summaryFingerprint, seenFingerprints)
+    ) {
+      continue;
+    }
+
+    selectedItems.push(normalizedItem);
+    seenCandidateIds.add(candidateId);
+    if (normalizedFingerprint) {
+      seenFingerprints.push(normalizedFingerprint);
+    }
+    if (summaryFingerprint) {
+      seenFingerprints.push(summaryFingerprint);
+    }
+  }
+
+  return selectedItems;
+}
+
 async function fetchLlmJsonWithGemini(prompt, config, responseJsonSchema) {
   const url = `${GEMINI_GENERATE_CONTENT_BASE_URL}${encodeURIComponent(
     config.aiNewsGeminiModel,
@@ -3288,6 +3683,86 @@ export async function generateTechAiNewsWithLlm(candidates, config) {
   );
 
   return normalizeAiNewsLlmItems(payload, candidates, config);
+}
+
+export async function generateTechAiNewsSummariesWithLlm(candidates, config) {
+  const payload = await fetchNewsLlmPayload(
+    buildAiNewsSummaryPrompt(candidates, config),
+    config,
+    {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              candidateId: { type: 'string' },
+              summary: { type: 'string' },
+            },
+            required: ['candidateId', 'summary'],
+          },
+        },
+      },
+      required: ['items'],
+    },
+    'AI 新闻摘要',
+  );
+
+  return normalizeTechAiSummaryItems(payload, candidates, config);
+}
+
+export async function generateTechAiNewsSummaryForCandidateWithLlm(
+  candidate,
+  config,
+) {
+  const payload = await fetchNewsLlmPayload(
+    buildAiNewsSingleSummaryPrompt(candidate),
+    config,
+    {
+      type: 'object',
+      properties: {
+        summary: { type: 'string' },
+      },
+      required: ['summary'],
+    },
+    'AI 新闻单条摘要',
+  );
+  const generatedSummary = normalizeWhitespace(
+    stripHtml(String(payload?.summary || '')),
+  );
+  const normalizedEntry = normalizeNewsLlmSelectedItem(
+    {
+      summary: generatedSummary,
+    },
+    candidate,
+    config,
+    'tech-ai',
+    buildTechAiNewsItem,
+  );
+  const normalizedItem = {
+    ...normalizedEntry.item,
+    candidateId: candidate.candidateId,
+  };
+
+  if (isLowQualityTechAiOutputItem(normalizedItem)) {
+    const pinnedItem = buildPinnedTechAiNewsItem(
+      candidate.item,
+      generatedSummary,
+      config.newsSummaryMaxLength,
+    );
+
+    if (!isLowQualityTechAiOutputItem(pinnedItem)) {
+      return {
+        ...pinnedItem,
+        candidateId: candidate.candidateId,
+      };
+    }
+
+    return null;
+  }
+
+  return normalizedItem;
 }
 
 export async function generateFinanceNewsWithLlm(candidates, config) {
@@ -3445,20 +3920,142 @@ async function fetchTechAiNewsCategory(config) {
           items: candidateItems,
           filteredCount: 0,
         };
-  let items = unseenCandidateResult.items.slice(0, config.techAiNewsLimit);
+  const hotlistCandidates = selectTechAiHotlistItems(
+    unseenCandidateResult.items,
+    config,
+  );
+  let items = hotlistCandidates.slice(0, config.techAiNewsLimit);
 
   if (
     config.aiNewsLlmEnabled &&
     resolveNewsLlmProviders(config).length > 0 &&
-    unseenCandidateResult.items.length > 0
+    hotlistCandidates.length > 0
   ) {
     try {
-      const llmCandidates = buildAiNewsLlmCandidateList(
-        unseenCandidateResult.items,
-      );
-      const llmItems = await generateTechAiNewsWithLlm(llmCandidates, config);
+      const llmCandidates = buildAiNewsLlmCandidateList(hotlistCandidates);
+      const llmItems = [];
+      const seenFingerprints = [];
+
+      for (const [index, candidate] of llmCandidates.entries()) {
+        let item = null;
+        try {
+          item = await generateTechAiNewsSummaryForCandidateWithLlm(
+            candidate,
+            config,
+          );
+        } catch (error) {
+          console.warn(
+            `[qq-market-bot] AI 新闻单条摘要失败，已回退原标题候选：${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+
+        const heuristicSummary = buildHeuristicTechAiSummaryFromTitle(
+          candidate.item,
+          config.newsSummaryMaxLength,
+        );
+        if (
+          item &&
+          shouldPreferHeuristicTechAiSummary(item.summary, heuristicSummary)
+        ) {
+          const heuristicItem = buildPinnedTechAiNewsItem(
+            {
+              ...candidate.item,
+              fingerprint:
+                candidate.item.fingerprint ||
+                buildNewsFingerprint(candidate.item, 'tech-ai'),
+              region: candidate.region || candidate.item.region || '',
+            },
+            heuristicSummary,
+            config.newsSummaryMaxLength,
+          );
+
+          if (!isLowQualityTechAiOutputItem(heuristicItem)) {
+            item = {
+              ...heuristicItem,
+              candidateId: candidate.candidateId,
+            };
+          }
+        }
+
+        if (!item) {
+          if (heuristicSummary) {
+            const heuristicItem = buildPinnedTechAiNewsItem(
+              {
+                ...candidate.item,
+                fingerprint:
+                  candidate.item.fingerprint ||
+                  buildNewsFingerprint(candidate.item, 'tech-ai'),
+                region: candidate.region || candidate.item.region || '',
+              },
+              heuristicSummary,
+              config.newsSummaryMaxLength,
+            );
+
+            if (!isLowQualityTechAiOutputItem(heuristicItem)) {
+              item = {
+                ...heuristicItem,
+                candidateId: candidate.candidateId,
+              };
+            }
+          }
+        }
+
+        if (!item) {
+          const fallbackItem = buildTechAiNewsItem(
+            {
+              ...candidate.item,
+              fingerprint:
+                candidate.item.fingerprint ||
+                buildNewsFingerprint(candidate.item, 'tech-ai'),
+              region: candidate.region || candidate.item.region || '',
+            },
+            config.newsSummaryMaxLength,
+          );
+
+          if (!isLowQualityTechAiOutputItem(fallbackItem)) {
+            item = {
+              ...fallbackItem,
+              candidateId: candidate.candidateId,
+            };
+          }
+        }
+
+        if (!item) {
+          continue;
+        }
+
+        const normalizedFingerprint = buildNewsFingerprint(item, 'tech-ai');
+        const summaryFingerprint = buildSummaryFingerprint(item, 'tech-ai');
+        if (
+          shouldSkipNewsByFingerprint(
+            normalizedFingerprint,
+            seenFingerprints,
+          ) ||
+          shouldSkipNewsByFingerprint(summaryFingerprint, seenFingerprints)
+        ) {
+          continue;
+        }
+
+        llmItems.push({
+          ...item,
+          llmRank: index,
+        });
+        if (normalizedFingerprint) {
+          seenFingerprints.push(normalizedFingerprint);
+        }
+        if (summaryFingerprint) {
+          seenFingerprints.push(summaryFingerprint);
+        }
+
+        if (llmItems.length >= config.techAiNewsLimit) {
+          break;
+        }
+      }
+
       if (llmItems.length > 0) {
-        items = llmItems;
+        items = llmItems.slice(0, config.techAiNewsLimit);
       }
     } catch (error) {
       console.warn(

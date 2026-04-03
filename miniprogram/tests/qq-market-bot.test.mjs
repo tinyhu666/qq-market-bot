@@ -10,11 +10,13 @@ import {
   generateFinanceNewsWithLlm,
   generateTechAiNewsWithLlm,
   normalizeSummaryLine,
+  normalizeTechAiGeneratedSummaryLine,
   parseAibaseNewsItems,
   parseTechAiSourceItems,
   readConfig,
   runMarketPush,
   selectFinanceNewsItems,
+  selectTechAiHotlistItems,
   selectTechAiNewsItems,
 } from '../scripts/qq-market-bot.mjs';
 
@@ -231,6 +233,23 @@ test('normalizeSummaryLine prefers complete clauses over raw truncation', () => 
   assert.doesNotMatch(summary, /…/u);
 });
 
+test('normalizeTechAiGeneratedSummaryLine strips speculative trailing clauses', () => {
+  assert.equal(
+    normalizeTechAiGeneratedSummaryLine(
+      'OpenAI宣布收购TBPN，此举可能增强其技术布局与市场竞争力。',
+      52,
+    ),
+    'OpenAI宣布收购TBPN。',
+  );
+  assert.equal(
+    normalizeTechAiGeneratedSummaryLine(
+      '谷歌AI宣布Gemini API推出成本与可靠性平衡新方案，预计2026年实施。',
+      52,
+    ),
+    '谷歌AI宣布Gemini API推出成本与可靠性平衡新方案。',
+  );
+});
+
 test('buildReportMessages greedily packs sections into fewer messages', () => {
   const messages = buildReportMessages(
     [
@@ -391,6 +410,20 @@ test('selectTechAiNewsItems filters noisy titles, trims multi-topic headlines, a
         sourcePriority: 5,
         publishedAt: new Date('2026-03-30T09:26:00+08:00'),
       },
+      {
+        title: '开盒Claude Code的原来是中国00后！曾怒怼Anthropic窃取用户代码',
+        summary: '凭一己之力推动全球AI社区向前走了一大步。',
+        source: '量子位',
+        sourcePriority: 7,
+        publishedAt: new Date('2026-03-30T09:27:00+08:00'),
+      },
+      {
+        title: 'AI原生时代来临，商汤大装置如何重塑算力集群架构',
+        summary: '商汤大装置分享AI原生云实践。',
+        source: '量子位',
+        sourcePriority: 7,
+        publishedAt: new Date('2026-03-30T09:28:00+08:00'),
+      },
     ],
     {
       techAiNewsLimit: 3,
@@ -415,6 +448,42 @@ test('selectTechAiNewsItems filters noisy titles, trims multi-topic headlines, a
       'OpenAI 扩展 Responses API，为自主智能体提供基础设施。',
       '特斯拉将建超级芯片工厂。',
     ].sort(),
+  );
+});
+
+test('selectTechAiHotlistItems keeps high-heat 7 plus 3 mix and fills remaining slots by heat', () => {
+  const items = [
+    ...Array.from({ length: 8 }, (_, index) => ({
+      title: `International ${index + 1} 发布 AI 平台能力`,
+      summary: `International ${index + 1} 发布 AI 平台能力。`,
+      source: 'OpenAI News',
+      region: 'international',
+      publishedAt: new Date(`2026-03-30T0${Math.min(index, 9)}:00:00+08:00`),
+      heatScore: 200 - index * 10,
+    })),
+    ...Array.from({ length: 2 }, (_, index) => ({
+      title: `Domestic ${index + 1} 发布 大模型 能力`,
+      summary: `Domestic ${index + 1} 发布 大模型 能力。`,
+      source: '量子位',
+      region: 'domestic',
+      publishedAt: new Date(`2026-03-30T1${index}:00:00+08:00`),
+      heatScore: 140 - index * 10,
+    })),
+  ];
+
+  const selected = selectTechAiHotlistItems(items, {
+    techAiNewsLimit: 10,
+  });
+
+  assert.equal(selected.length, 10);
+  assert.equal(
+    selected.filter((item) => item.region === 'international').length,
+    8,
+  );
+  assert.equal(selected.filter((item) => item.region === 'domestic').length, 2);
+  assert.equal(selected[0].title, 'International 1 发布 AI 平台能力');
+  assert.ok(
+    selected.some((item) => item.title === 'Domestic 2 发布 大模型 能力'),
   );
 });
 
