@@ -200,4 +200,17 @@
 - change197 日期:2026-04-03 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:新增英文国际 AI 标题逐条摘要、规则化中文兜底与“不再跨时段去重”的当前规格说明，并补充 AI 区异常缩水的边界与验收要求 | 关联:task037
 - change198 日期:2026-04-03 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充英文国际 AI 标题逐条总结优先级，以及 DeepSeek 对英文标题漏项时需要规则兜底的风险记录 | 关联:task037
 - change199 日期:2026-04-03 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task037，记录 AI Top 不再异常缩水且过滤空话摘要的修复任务 | 关联:task037
+- change200 日期:2026-04-19 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:消息模块与新闻抓取 | 说明:新增 `Follow Builder` 独立区块，接入 `follow-builders` 公开 feed 的 X/blogs/podcasts 数据，并补充筛选、LLM 总结与跨栏目去重链路 | 关联:task038
+- change201 日期:2026-04-19 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充 `Follow Builder` 模块的配置、选择逻辑与最终消息输出断言，并更新 runMarketPush dry-run/去重回归测试 | 关联:task038
+- change202 日期:2026-04-19 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:新增 `Follow Builder` 模块说明、数据源口径、消息去重描述与示例输出 | 关联:task038
+- change203 日期:2026-04-19 | 文件:miniprogram/scripts/qq-market-bot.env.example | 操作:Modify | 影响:示例配置 | 说明:补充 `MARKET_FOLLOW_BUILDER_NEWS_LIMIT` 示例项，方便独立控制 Follow Builder 模块条数 | 关联:task038
+- change204 日期:2026-04-19 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将消息结构更新为价格 + AI + Follow Builder + 财经，并补充该模块的目标、边界与验收要求 | 关联:task038
+- change205 日期:2026-04-19 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 Follow Builder 模块接入优先级，以及 raw GitHub feed 为空和跨栏目撞题的风险说明 | 关联:task038
+- change206 日期:2026-04-19 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task038，记录 Follow Builder 作为独立消息模块接入的需求与验证方式 | 关联:task038
+- change207 日期:2026-04-19 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:X/blog 区块输出 | 说明:将新增模块更名为 `X/blog`，收敛为 `X + blog` 源，并把最终消息固定为最多前 5 条加统一详情链接，优先跳转到真实详情页 | 关联:task039
+- change208 日期:2026-04-19 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充 X/blog 标题、前 5 条预览和详情链接断言，并更新现有 dry-run 与最终消息回归测试 | 关联:task039
+- change209 日期:2026-04-19 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:将新增模块说明统一更名为 X/blog，并补充“最多 5 条 + 点击查看详情链接”的展示规则 | 关联:task039
+- change210 日期:2026-04-19 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将消息结构中的 Follow Builder 更名为 X/blog，并补充最终消息只展示前 5 条和详情链接优先跳真实详情页的验收标准 | 关联:task039
+- change211 日期:2026-04-19 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 X/blog 固定前 5 条预览的优先级，以及超出部分通过统一详情链接承接的风险说明 | 关联:task039
+- change212 日期:2026-04-19 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task039，记录 X/blog 更名、长度控制与详情链接需求 | 关联:task039
 - change168 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充联想/高德的国内区域识别断言，并将促销文案样例纳入 AI 候选过滤测试 | 关联:task031

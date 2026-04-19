@@ -5,6 +5,7 @@ import {
   buildReportMessages,
   classifyTechAiNewsRegion,
   dedupeNewsSectionsForMessage,
+  fetchNewsSection,
   fetchQuote,
   formatReport,
   generateFinanceNewsWithLlm,
@@ -16,6 +17,7 @@ import {
   readConfig,
   runMarketPush,
   selectFinanceNewsItems,
+  selectFollowBuilderNewsItems,
   selectTechAiHotlistItems,
   selectTechAiNewsItems,
 } from '../scripts/qq-market-bot.mjs';
@@ -44,6 +46,7 @@ test('readConfig parses onebot configuration', () => {
     config.symbols.map((item) => item.label),
     ['XAU', 'XAG', 'WTI', 'ETH', 'NDX', 'SPX', 'USDX', 'SH'],
   );
+  assert.equal(config.followBuilderNewsLimit, 5);
 });
 
 test('readConfig parses onebot websocket configuration', () => {
@@ -193,6 +196,17 @@ test('formatReport renders compact quote + news sections', () => {
         ],
       },
       {
+        category: 'follow-builder',
+        title: 'X/blog',
+        error: '',
+        items: [
+          {
+            publishedAt: new Date('2026-03-30T08:08:00+08:00'),
+            summary: 'Kevin Weil 宣布 OpenAI for Science 团队并入其他研究组。',
+          },
+        ],
+      },
+      {
         category: 'finance',
         title: '财经',
         error: '',
@@ -218,6 +232,7 @@ test('formatReport renders compact quote + news sections', () => {
   assert.match(report, /美元（USDX）：100\.24（\+0\.07%）/);
   assert.match(report, /上证（SH）：3,230\.18（\+0\.24%）/);
   assert.match(report, /【AI Top 1】/);
+  assert.match(report, /【X\/blog Top 1】/);
   assert.match(report, /【财经 Top 1】/);
   assert.doesNotMatch(report, /数据源/u);
   assert.doesNotMatch(report, /来源：/u);
@@ -247,6 +262,275 @@ test('normalizeTechAiGeneratedSummaryLine strips speculative trailing clauses', 
       52,
     ),
     '谷歌AI宣布Gemini API推出成本与可靠性平衡新方案。',
+  );
+});
+
+test('selectFollowBuilderNewsItems keeps eventful builder updates and filters low-signal posts', () => {
+  const items = selectFollowBuilderNewsItems(
+    [
+      {
+        title: 'wow and a Colossus profile from Camille',
+        summary: 'wow and a Colossus profile from Camille',
+        rawText: 'wow and a Colossus profile from Camille',
+        source: 'Follow Builders X',
+        sourceType: 'x',
+        sourcePriority: 8,
+        builderName: 'Swyx',
+        builderHandle: 'swyx',
+        publishedAt: new Date('2026-04-18T06:00:00Z'),
+        engagementScore: 0,
+      },
+      {
+        title:
+          'Today is my last day at OpenAI, as OpenAI for Science is being decentralized into other research teams',
+        summary:
+          'Today is my last day at OpenAI, as OpenAI for Science is being decentralized into other research teams',
+        rawText:
+          'Today is my last day at OpenAI, as OpenAI for Science is being decentralized into other research teams.',
+        source: 'Follow Builders X',
+        sourceType: 'x',
+        sourcePriority: 8,
+        builderName: 'Kevin Weil',
+        builderHandle: 'kevinweil',
+        builderBio: 'VP Science @OpenAI',
+        publishedAt: new Date('2026-04-18T03:00:00Z'),
+        engagementScore: 4470,
+      },
+      {
+        title:
+          'Meet googleflowmusic formerly ProducerAI a standalone site that helps you create share and remix original music',
+        summary:
+          'Meet googleflowmusic formerly ProducerAI a standalone site that helps you create share and remix original music',
+        rawText:
+          'Meet googleflowmusic formerly ProducerAI, a standalone site that helps you create, share, and remix original music.',
+        source: 'Follow Builders X',
+        sourceType: 'x',
+        sourcePriority: 8,
+        builderName: 'Google Labs',
+        builderHandle: 'GoogleLabs',
+        builderBio: 'Google’s home for our latest AI tools and experiments.',
+        publishedAt: new Date('2026-04-18T01:30:00Z'),
+        engagementScore: 1884,
+      },
+      {
+        title: 'Having ALOT of fun with Claude Design',
+        summary: 'Having ALOT of fun with Claude Design',
+        rawText:
+          'Having ALOT of fun with Claude Design. Here is a video I just made demoing 5 use cases.',
+        source: 'Follow Builders X',
+        sourceType: 'x',
+        sourcePriority: 8,
+        builderName: 'Peter Yang',
+        builderHandle: 'petergyang',
+        publishedAt: new Date('2026-04-18T01:10:00Z'),
+        engagementScore: 43,
+      },
+    ],
+    {
+      followBuilderNewsLimit: 5,
+      newsSummaryMaxLength: 48,
+    },
+    new Date('2026-04-18T08:00:00Z'),
+  );
+
+  assert.equal(items.length, 2);
+  assert.match(items[0].summary, /OpenAI/u);
+  assert.match(items[1].summary, /Google Labs/u);
+});
+
+test('fetchNewsSection limits X/blog module to 5 lines and adds detail link when overflowed', async () => {
+  const originalFetch = globalThis.fetch;
+  const recentTimestamps = Array.from({ length: 6 }, (_, index) =>
+    new Date(Date.now() - (index + 1) * 60 * 60 * 1000).toISOString(),
+  );
+
+  globalThis.fetch = async (url) => {
+    const requestUrl = String(url);
+
+    if (requestUrl.includes('feed-x.json')) {
+      return {
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            generatedAt: '2026-04-18T07:04:16.549Z',
+            lookbackHours: 24,
+            x: [
+              {
+                source: 'x',
+                name: 'Kevin Weil',
+                handle: 'kevinweil',
+                bio: 'VP Science @OpenAI',
+                tweets: [
+                  {
+                    text: 'Today is my last day at OpenAI, as OpenAI for Science is being decentralized into other research teams.',
+                    createdAt: recentTimestamps[0],
+                    url: 'https://x.com/kevinweil/status/1',
+                    likes: 3558,
+                    retweets: 107,
+                    replies: 242,
+                  },
+                ],
+              },
+              {
+                source: 'x',
+                name: 'Google Labs',
+                handle: 'GoogleLabs',
+                bio: 'Google AI',
+                tweets: [
+                  {
+                    text: 'Meet googleflowmusic formerly ProducerAI, a standalone site that helps you create, share, and remix original music.',
+                    createdAt: recentTimestamps[1],
+                    url: 'https://x.com/googlelabs/status/2',
+                    likes: 1204,
+                    retweets: 150,
+                    replies: 40,
+                  },
+                ],
+              },
+              {
+                source: 'x',
+                name: 'Alex Albert',
+                handle: 'alexalbert__',
+                bio: 'Research @AnthropicAI',
+                tweets: [
+                  {
+                    text: 'A lot of bugs that folks may have hit yesterday when first trying Opus 4.7 are now fixed.',
+                    createdAt: recentTimestamps[2],
+                    url: 'https://x.com/alexalbert__/status/3',
+                    likes: 1139,
+                    retweets: 43,
+                    replies: 94,
+                  },
+                ],
+              },
+              {
+                source: 'x',
+                name: 'Josh Woodward',
+                handle: 'joshwoodward',
+                bio: 'VP, Google Labs',
+                tweets: [
+                  {
+                    text: 'ProducerAI is now Google Flow Music. Same mission: push the creative boundaries.',
+                    createdAt: recentTimestamps[3],
+                    url: 'https://x.com/joshwoodward/status/4',
+                    likes: 130,
+                    retweets: 9,
+                    replies: 6,
+                  },
+                ],
+              },
+              {
+                source: 'x',
+                name: 'Amjad Masad',
+                handle: 'amasad',
+                bio: 'ceo @replit',
+                tweets: [
+                  {
+                    text: 'Replit Agent is now available to more teams with updated collaboration support.',
+                    createdAt: recentTimestamps[4],
+                    url: 'https://x.com/amasad/status/5',
+                    likes: 840,
+                    retweets: 35,
+                    replies: 18,
+                  },
+                ],
+              },
+              {
+                source: 'x',
+                name: 'Guillermo Rauch',
+                handle: 'rauchg',
+                bio: 'CEO @vercel',
+                tweets: [
+                  {
+                    text: 'v0 is now available with improved code generation and better support for production workflows.',
+                    createdAt: recentTimestamps[5],
+                    url: 'https://x.com/rauchg/status/6',
+                    likes: 930,
+                    retweets: 52,
+                    replies: 22,
+                  },
+                ],
+              },
+            ],
+          }),
+      };
+    }
+
+    if (requestUrl.includes('feed-blogs.json')) {
+      return {
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            generatedAt: '2026-04-18T07:04:19.537Z',
+            lookbackHours: 72,
+            blogs: [
+              {
+                source: 'blog',
+                name: 'Anthropic Engineering',
+                title:
+                  'Quantifying infrastructure noise in agentic coding evals',
+                url: 'https://www.anthropic.com/engineering/infrastructure-noise',
+                publishedAt: recentTimestamps[5],
+                description: '',
+                content:
+                  'Infrastructure configuration alone can materially change agentic coding eval scores.',
+              },
+            ],
+          }),
+      };
+    }
+
+    throw new Error(`unexpected url: ${requestUrl}`);
+  };
+
+  try {
+    const section = await fetchNewsSection('follow-builder', {
+      followBuilderNewsLimit: 5,
+      newsSummaryMaxLength: 48,
+      aiNewsLlmEnabled: false,
+      timeZone: 'Asia/Shanghai',
+    });
+
+    assert.equal(section.title, 'X/blog');
+    assert.equal(section.items.length, 5);
+    assert.match(
+      section.detailLine,
+      /更多总结（另有 2 条）：点击查看详情 https:\/\/www\.anthropic\.com\/engineering\/infrastructure-noise/u,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('formatReport appends X/blog detail link when extra items are hidden', () => {
+  const report = formatReport(
+    [],
+    [
+      {
+        category: 'follow-builder',
+        title: 'X/blog',
+        error: '',
+        items: [
+          {
+            summary: 'Kevin Weil 宣布 OpenAI for Science 团队并入其他研究组。',
+          },
+          { summary: 'Google Labs 将 ProducerAI 更名为 Google Flow Music。' },
+          { summary: 'Anthropic 修复 Opus 4.7 初次上线后的多项缺陷。' },
+          { summary: 'Replit Agent 向更多团队开放协作支持。' },
+          { summary: 'v0 上线更强的生产级代码生成能力。' },
+        ],
+        detailLine:
+          '更多总结（另有 2 条）：点击查看详情 https://www.anthropic.com/engineering/infrastructure-noise',
+      },
+    ],
+    new Date('2026-03-30T09:40:00+08:00'),
+    'Asia/Shanghai',
+  );
+
+  assert.match(report, /【X\/blog Top 5】/);
+  assert.match(
+    report,
+    /更多总结（另有 2 条）：点击查看详情 https:\/\/www\.anthropic\.com\/engineering\/infrastructure-noise/u,
   );
 });
 
@@ -815,18 +1099,33 @@ test('runMarketPush allows repeated hot news across different push times', async
               },
             ],
           }
-        : {
-            category,
-            title: '财经',
-            error: '',
-            items: [
-              {
-                title: 'A股成交额突破1万亿元',
-                publishedAt: new Date('2026-04-01T12:45:00+08:00'),
-                summary: 'A股成交额突破1万亿元',
-              },
-            ],
-          },
+        : category === 'follow-builder'
+          ? {
+              category,
+              title: 'X/blog',
+              error: '',
+              items: [
+                {
+                  title:
+                    'Kevin Weil 宣布 OpenAI for Science 团队并入其他研究组',
+                  publishedAt: new Date('2026-04-01T12:50:00+08:00'),
+                  summary:
+                    'Kevin Weil 宣布 OpenAI for Science 团队并入其他研究组。',
+                },
+              ],
+            }
+          : {
+              category,
+              title: '财经',
+              error: '',
+              items: [
+                {
+                  title: 'A股成交额突破1万亿元',
+                  publishedAt: new Date('2026-04-01T12:45:00+08:00'),
+                  summary: 'A股成交额突破1万亿元',
+                },
+              ],
+            },
     newsStateStore: {
       read: async () => storedState,
       write: async (nextState) => {
@@ -843,6 +1142,9 @@ test('runMarketPush allows repeated hot news across different push times', async
   const techSection = result.newsSections.find(
     (section) => section.category === 'tech-ai',
   );
+  const followBuilderSection = result.newsSections.find(
+    (section) => section.category === 'follow-builder',
+  );
   const financeSection = result.newsSections.find(
     (section) => section.category === 'finance',
   );
@@ -850,6 +1152,12 @@ test('runMarketPush allows repeated hot news across different push times', async
   assert.equal(techSection.items.length, 2);
   assert.match(result.message, /OpenAI 扩展 Responses API/u);
   assert.match(result.message, /Anthropic 发布新一代 Claude 模型/u);
+  assert.equal(followBuilderSection.items.length, 1);
+  assert.match(result.message, /【X\/blog Top 1】/u);
+  assert.match(
+    result.message,
+    /Kevin Weil 宣布 OpenAI for Science 团队并入其他研究组/u,
+  );
   assert.equal(financeSection.items.length, 1);
   assert.match(result.message, /A股成交额突破1万亿元/u);
   assert.equal(writtenState, null);
@@ -889,26 +1197,33 @@ test('runMarketPush removes duplicate stories between ai and finance sections', 
               },
             ],
           }
-        : {
-            category,
-            title: '财经',
-            error: '',
-            items: [
-              {
-                title: 'OpenAI 扩展 Responses API，为自主智能体提供基础设施',
-                summary:
-                  'OpenAI 扩展 Responses API 带动相关 AI 基础设施概念走强。',
-                publishedAt: new Date('2026-04-01T18:00:00+08:00'),
-                fingerprint:
-                  'OpenAI 扩展 Responses API，为自主智能体提供基础设施',
-              },
-              {
-                title: 'A股成交额突破1万亿元',
-                summary: 'A股成交额突破1万亿元',
-                publishedAt: new Date('2026-04-01T18:05:00+08:00'),
-              },
-            ],
-          },
+        : category === 'follow-builder'
+          ? {
+              category,
+              title: 'X/blog',
+              error: '',
+              items: [],
+            }
+          : {
+              category,
+              title: '财经',
+              error: '',
+              items: [
+                {
+                  title: 'OpenAI 扩展 Responses API，为自主智能体提供基础设施',
+                  summary:
+                    'OpenAI 扩展 Responses API 带动相关 AI 基础设施概念走强。',
+                  publishedAt: new Date('2026-04-01T18:00:00+08:00'),
+                  fingerprint:
+                    'OpenAI 扩展 Responses API，为自主智能体提供基础设施',
+                },
+                {
+                  title: 'A股成交额突破1万亿元',
+                  summary: 'A股成交额突破1万亿元',
+                  publishedAt: new Date('2026-04-01T18:05:00+08:00'),
+                },
+              ],
+            },
     newsStateStore: {
       read: async () => ({
         version: 1,
@@ -2035,15 +2350,26 @@ test('runMarketPush supports dry-run mode', async () => {
     }),
     newsFetcher: async (category) => ({
       category,
-      title: category === 'finance' ? '财经' : 'AI',
+      title:
+        category === 'finance'
+          ? '财经'
+          : category === 'follow-builder'
+            ? 'X/blog'
+            : 'AI',
       error: '',
-      items: [
-        {
-          title: `${category} 新闻 1`,
-          publishedAt: new Date('2026-03-30T09:00:00+08:00'),
-          summary: '这是中文总结。',
-        },
-      ],
+      items:
+        category === 'finance'
+          ? []
+          : [
+              {
+                title: `${category} 新闻 1`,
+                publishedAt: new Date('2026-03-30T09:00:00+08:00'),
+                summary:
+                  category === 'follow-builder'
+                    ? 'Kevin Weil 宣布 OpenAI for Science 团队并入其他研究组。'
+                    : 'OpenAI 扩展 Responses API，为自主智能体提供基础设施。',
+              },
+            ],
     }),
   });
 
@@ -2055,6 +2381,7 @@ test('runMarketPush supports dry-run mode', async () => {
   assert.match(result.message, /美元（USDX）：100\.24（\+0\.07%）/);
   assert.match(result.message, /上证（SH）：3,230\.18（\+0\.24%）/);
   assert.match(result.message, /【AI Top 1】/);
+  assert.match(result.message, /【X\/blog Top 1】/);
   assert.match(result.message, /【财经 Top 0】/);
-  assert.match(result.message, /今天暂无新的新闻。/u);
+  assert.match(result.message, /暂无符合条件的新闻。/u);
 });
