@@ -225,3 +225,9 @@ change222 日期:2026-04-22 | 文件:miniprogram/scripts/qq-market-bot.env.examp
 change223 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:移除 `X/blog` 当前规格，更新为三段消息结构并补充 AI 质量收紧要求 | 关联:task041
 change224 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:移除 `X/blog` 优先级与风险描述，补充当前 AI 质量优先与硬新闻候选筛选的执行计划 | 关联:task041
 change225 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task041，记录移除 `X/blog` 和继续修复 AI 新闻质量的需求 | 关联:task041
+change226 日期:2026-04-22 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 候选源与热榜筛选 | 说明:新增 `The Decoder`、`AI News` 国际源，恢复 `AIBase` 为低优先级回填，并加入单源限流、事件级去重与中文国际公司名实体识别，避免 AI 区长期缩到 Top 3 | 关联:task042
+change227 日期:2026-04-22 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充低优先级回填源限流、同事件改写稿去重和中文国际公司名识别相关断言，覆盖 AI 候选补量后的回归场景 | 关联:task042
+change228 日期:2026-04-22 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:更新 AI 新闻默认源口径，补充 `The Decoder`、`AI News` 与 `AIBase` 低优先级回填、单源限流和事件去重说明 | 关联:task042
+change229 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将 AI 候选源规格更新为高质量主源优先、低优先级回填补量，并补充单源限流与事件级去重要求 | 关联:task042
+change230 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 AI 候选源扩充、低优先级源限流和同事件改写稿去重的当前执行计划与风险说明 | 关联:task042
+change231 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task042，记录 AI Top 3 过少后的补源、限流与事件去重修复任务 | 关联:task042

@@ -702,6 +702,133 @@ test('selectTechAiNewsItems prefers hotter stories by source authority, freshnes
   assert.ok(items[0].heatScore > 0);
 });
 
+test('selectTechAiNewsItems uses capped low-priority backfill without letting a noisy source dominate', () => {
+  const items = selectTechAiNewsItems(
+    [
+      {
+        title: 'OpenAI launches enterprise agent workspace',
+        summary:
+          'OpenAI launches enterprise agent workspace for secure workflow orchestration.',
+        source: 'OpenAI News',
+        sourcePriority: 10,
+        region: 'international',
+        publishedAt: new Date('2026-04-21T17:30:00+08:00'),
+      },
+      {
+        title:
+          'Google launches Deep Research and Deep Research Max agents to automate complex research',
+        summary:
+          'Google launches Deep Research and Deep Research Max agents to automate complex research.',
+        source: 'The Decoder',
+        sourcePriority: 6,
+        region: 'international',
+        publishedAt: new Date('2026-04-21T18:00:00+08:00'),
+      },
+      {
+        title: 'Snowflake expands its technical and mainstream AI platforms',
+        summary: 'Snowflake expands its technical and mainstream AI platforms.',
+        source: 'AI News',
+        sourcePriority: 4,
+        region: 'international',
+        publishedAt: new Date('2026-04-21T18:05:00+08:00'),
+      },
+      {
+        title: '腾讯云开源 CubeSandbox：打造 AI Agent 的高性能“安全屋”',
+        summary: '腾讯云开源 CubeSandbox：打造 AI Agent 的高性能“安全屋”。',
+        source: 'AIBase',
+        sourcePriority: 3,
+        region: 'domestic',
+        publishedAt: new Date('2026-04-21T18:10:00+08:00'),
+      },
+      {
+        title: 'Meta推出内部监测工具，利用员工键鼠操作数据训练AI模型',
+        summary: 'Meta推出内部监测工具，利用员工键鼠操作数据训练AI模型。',
+        source: 'AIBase',
+        sourcePriority: 3,
+        region: 'international',
+        publishedAt: new Date('2026-04-21T18:11:00+08:00'),
+      },
+      {
+        title:
+          '谷歌推出 Gemini3.1Pro 深度研究代理:支持 MCP 协议与多模态自主研究',
+        summary:
+          '谷歌推出 Gemini3.1Pro 深度研究代理，支持 MCP 协议与多模态自主研究。',
+        source: 'AIBase',
+        sourcePriority: 3,
+        region: 'international',
+        publishedAt: new Date('2026-04-21T18:12:00+08:00'),
+      },
+      {
+        title: '全国高校首个纪检监察大模型“清鉴”正式发布',
+        summary: '全国高校首个纪检监察大模型“清鉴”正式发布。',
+        source: 'AIBase',
+        sourcePriority: 3,
+        region: 'domestic',
+        publishedAt: new Date('2026-04-21T18:13:00+08:00'),
+      },
+    ],
+    {
+      techAiNewsLimit: 6,
+      newsSummaryMaxLength: 48,
+    },
+    new Date('2026-04-21T19:00:00+08:00'),
+  );
+
+  assert.ok(items.some((item) => item.source === 'OpenAI News'));
+  assert.ok(items.some((item) => item.source === 'The Decoder'));
+  assert.ok(items.some((item) => item.source === 'AI News'));
+  assert.equal(items.filter((item) => item.source === 'AIBase').length, 1);
+  assert.ok(
+    items.every((item) => !/高校|纪检|监察/u.test(item.title || item.summary)),
+  );
+});
+
+test('selectTechAiNewsItems dedupes rewritten low-priority stories about the same event', () => {
+  const items = selectTechAiNewsItems(
+    [
+      {
+        title: 'AI 研究实验室 NeoCognition 获 4000 万美元融资',
+        summary: 'AI 研究实验室 NeoCognition 获 4000 万美元融资。',
+        source: 'AIBase',
+        sourcePriority: 3,
+        region: 'domestic',
+        publishedAt: new Date('2026-04-21T18:10:00+08:00'),
+      },
+      {
+        title: 'AI智能体实验室 NeoCognition 获 4000 万美元种子轮融资',
+        summary: 'AI智能体实验室 NeoCognition 获 4000 万美元种子轮融资。',
+        source: 'AIBase',
+        sourcePriority: 3,
+        region: 'domestic',
+        publishedAt: new Date('2026-04-21T18:11:00+08:00'),
+      },
+      {
+        title: 'Google launches Deep Research and Deep Research Max agents',
+        summary: 'Google launches Deep Research and Deep Research Max agents.',
+        source: 'The Decoder',
+        sourcePriority: 6,
+        region: 'international',
+        publishedAt: new Date('2026-04-21T18:12:00+08:00'),
+      },
+    ],
+    {
+      techAiNewsLimit: 3,
+      newsSummaryMaxLength: 48,
+    },
+    new Date('2026-04-21T19:00:00+08:00'),
+  );
+
+  assert.equal(items.length, 2);
+  assert.equal(
+    items.filter((item) => /NeoCognition/u.test(item.title || item.summary))
+      .length,
+    1,
+  );
+  assert.ok(
+    items.some((item) => /Deep Research/u.test(item.title || item.summary)),
+  );
+});
+
 test('selectFinanceNewsItems filters calendar noise, clickbait, and duplicate headlines', () => {
   const items = selectFinanceNewsItems(
     [
