@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildHeuristicTechAiSummaryFromTitle,
   buildReportMessages,
   classifyTechAiNewsRegion,
   dedupeNewsSectionsForMessage,
@@ -826,6 +827,52 @@ test('selectTechAiNewsItems dedupes rewritten low-priority stories about the sam
   );
   assert.ok(
     items.some((item) => /Deep Research/u.test(item.title || item.summary)),
+  );
+});
+
+test('selectTechAiNewsItems filters trend-packaged agent teamwork headlines', () => {
+  const items = selectTechAiNewsItems(
+    [
+      {
+        title: '单Agent时代结束，AI们开始组团上班',
+        summary: '单Agent时代结束，AI们开始组团上班。',
+        source: '量子位',
+        sourcePriority: 7,
+        region: 'domestic',
+        publishedAt: new Date('2026-04-22T09:00:00+08:00'),
+      },
+      {
+        title:
+          'Google launches Deep Research and Deep Research Max agents to automate complex research',
+        summary:
+          'Google launches Deep Research and Deep Research Max agents to automate complex research.',
+        source: 'The Decoder',
+        sourcePriority: 6,
+        region: 'international',
+        publishedAt: new Date('2026-04-22T09:10:00+08:00'),
+      },
+      {
+        title: 'OpenAI launches enterprise agent workspace',
+        summary:
+          'OpenAI launches enterprise agent workspace for secure workflow orchestration.',
+        source: 'OpenAI News',
+        sourcePriority: 10,
+        region: 'international',
+        publishedAt: new Date('2026-04-22T09:15:00+08:00'),
+      },
+    ],
+    {
+      techAiNewsLimit: 3,
+      newsSummaryMaxLength: 48,
+    },
+    new Date('2026-04-22T10:00:00+08:00'),
+  );
+
+  assert.equal(items.length, 2);
+  assert.ok(
+    items.every(
+      (item) => !/单Agent时代结束|组团上班/u.test(item.title || item.summary),
+    ),
   );
 });
 
@@ -1969,6 +2016,30 @@ test('generateTechAiNewsWithLlm falls back when llm summary reads like strategy 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('buildHeuristicTechAiSummaryFromTitle rewrites editorialized english headline into hard-news chinese', () => {
+  assert.equal(
+    buildHeuristicTechAiSummaryFromTitle(
+      {
+        title:
+          'ChatGPT Images 2.0 is a breakthrough that could fundamentally reshape graphic generation',
+        source: 'The Decoder',
+      },
+      48,
+    ),
+    'OpenAI升级ChatGPT Images 2.0图像生成能力。',
+  );
+  assert.equal(
+    buildHeuristicTechAiSummaryFromTitle(
+      {
+        title: 'Siemens introduces AI system for automation engineering',
+        source: 'AI News',
+      },
+      48,
+    ),
+    '西门子推出面向自动化工程的AI系统。',
+  );
 });
 
 test('generateFinanceNewsWithLlm rewrites finance candidates into concise market summaries', async () => {

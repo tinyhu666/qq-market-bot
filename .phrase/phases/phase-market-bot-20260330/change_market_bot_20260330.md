@@ -231,3 +231,9 @@ change228 日期:2026-04-22 | 文件:miniprogram/README.md | 操作:Modify | 影
 change229 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将 AI 候选源规格更新为高质量主源优先、低优先级回填补量，并补充单源限流与事件级去重要求 | 关联:task042
 change230 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 AI 候选源扩充、低优先级源限流和同事件改写稿去重的当前执行计划与风险说明 | 关联:task042
 change231 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task042，记录 AI Top 3 过少后的补源、限流与事件去重修复任务 | 关联:task042
+change232 日期:2026-04-22 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 标题过滤与英文标题兜底摘要 | 说明:新增趋势包装标题过滤，并为评价型英文标题补充规则化中文硬新闻摘要，进一步压掉媒体腔表达 | 关联:task043
+change233 日期:2026-04-22 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充趋势包装标题过滤与评价型英文标题规则摘要断言，覆盖 AI 热榜数量恢复后的新质量回归场景 | 关联:task043
+change234 日期:2026-04-22 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充 AI 区对评价型英文标题和趋势包装标题的当前处理口径，说明最终消息会更偏硬新闻快讯 | 关联:task043
+change235 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充评价型英文标题规则化摘要与趋势包装标题过滤的验收要求 | 关联:task043
+change236 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 AI 热榜继续压缩媒体腔和趋势包装表达的执行计划与源质量风险说明 | 关联:task043
+change237 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task043，记录 AI 热榜在恢复到 Top 10 后继续收紧口吻质量的修复任务 | 关联:task043

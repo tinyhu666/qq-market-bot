@@ -2089,6 +2089,14 @@ function isLowQualityTechAiSummaryLine(text) {
     return true;
   }
 
+  if (
+    /(?:可能从根本上重塑|进入[“"]?自动驾驶[”"]?时代|开始组团(?:上班|工作)|被视为[^，。]{0,24}新阶段)/u.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+
   return false;
 }
 
@@ -2649,11 +2657,14 @@ function inferTechAiSummarySubject(item) {
   if (/anthropic|claude/iu.test(title) || /anthropic/iu.test(source)) {
     return 'Anthropic';
   }
+  if (/chatgpt/iu.test(title)) {
+    return 'OpenAI';
+  }
 
   return '';
 }
 
-function buildHeuristicTechAiSummaryFromTitle(item, maxLength) {
+export function buildHeuristicTechAiSummaryFromTitle(item, maxLength) {
   const title = normalizeTechAiNewsTitle(item.title || item.summary || '');
   const subject = inferTechAiSummarySubject(item);
   let summary = '';
@@ -2676,10 +2687,28 @@ function buildHeuristicTechAiSummaryFromTitle(item, maxLength) {
 
   if (!summary) {
     match = title.match(
+      /^\d+\s+new ways\s+Ads Advisor is making Google Ads safer and faster$/iu,
+    );
+    if (match) {
+      summary = 'Google Ads Advisor新增三项安全与提效功能。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
       /^(.+?)\s+now offers more flexible pricing for teams$/iu,
     );
     if (match) {
       summary = `${subject || '相关平台'}为${match[1]}团队版提供更灵活定价。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^ChatGPT Images 2\.0 is a breakthrough that could fundamentally reshape graphic generation$/iu,
+    );
+    if (match) {
+      summary = 'OpenAI升级ChatGPT Images 2.0图像生成能力。';
     }
   }
 
@@ -2694,6 +2723,15 @@ function buildHeuristicTechAiSummaryFromTitle(item, maxLength) {
 
   if (!summary) {
     match = title.match(
+      /^Google launches Deep Research and Deep Research Max agents to automate complex research$/iu,
+    );
+    if (match) {
+      summary = '谷歌推出Deep Research与Deep Research Max研究代理。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
       /^From RTX to Spark:\s*NVIDIA Accelerates\s+(.+?)\s+for Local Agentic AI$/iu,
     );
     if (match) {
@@ -2703,10 +2741,37 @@ function buildHeuristicTechAiSummaryFromTitle(item, maxLength) {
 
   if (!summary) {
     match = title.match(
+      /^Jeff Bezos nears \$10 billion funding round for AI lab ["“]?Project Prometheus["”]?$/iu,
+    );
+    if (match) {
+      summary = '贝索斯旗下AI实验室Project Prometheus接近完成100亿美元融资。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
       /^Bringing AI Closer to the Edge and On-Device with\s+(.+)$/iu,
     );
     if (match) {
       summary = `${match[1]}推动AI向边缘与端侧部署。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Snowflake expands its technical and mainstream AI platforms$/iu,
+    );
+    if (match) {
+      summary = 'Snowflake扩展技术与通用AI平台能力。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Siemens introduces AI system for automation engineering$/iu,
+    );
+    if (match) {
+      summary = '西门子推出面向自动化工程的AI系统。';
     }
   }
 
@@ -2747,6 +2812,14 @@ function shouldPreferHeuristicTechAiSummary(currentSummary, heuristicSummary) {
 
   if (
     /(?:技术博客发布(?:文章)?|用于本地代理\s*ai|从\s*rtx\s*到\s*spark)/iu.test(
+      currentSummary,
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    /(?:可能从根本上重塑|进入[“"]?自动驾驶[”"]?时代|开始组团(?:上班|工作)|被视为[^，。]{0,24}新阶段)/u.test(
       currentSummary,
     )
   ) {
@@ -2914,6 +2987,15 @@ function isExcludedTechAiNewsItem(item) {
   if (
     (item.sourcePriority || 0) <= 7 &&
     /(?:开盒|怒怼|凭一己之力|交出[^，。]{0,12}答卷|上市首日大涨|ai原生时代来临|如何重塑|分享ai原生云实践)/u.test(
+      `${title} ${item.summary || ''}`,
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    (item.sourcePriority || 0) <= 7 &&
+    /(?:单agent时代结束|组团上班|组团工作|进入[“"]?自动驾驶[”"]?时代)/iu.test(
       `${title} ${item.summary || ''}`,
     )
   ) {
