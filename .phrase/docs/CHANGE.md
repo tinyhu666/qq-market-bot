@@ -238,4 +238,6 @@
 - change235 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充评价型英文标题规则化摘要与趋势包装标题过滤的验收要求 | 关联:task043
 - change236 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 AI 热榜继续压缩媒体腔和趋势包装表达的执行计划与源质量风险说明 | 关联:task043
 - change237 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task043，记录 AI 热榜在恢复到 Top 10 后继续收紧口吻质量的修复任务 | 关联:task043
+- change238 日期:2026-04-22 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 单条摘要链路 | 说明:将 heuristic 优先级下沉到单条摘要函数，并补充项目代号保留原文与 awkward 中文改写优先条件，继续压缩媒体腔结果 | 关联:task043
+- change239 日期:2026-04-22 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充单条摘要链路对 `Project Prometheus` 与 `Snowflake` awkward 中文总结的回归断言，确保 heuristic 兜底在真实调用路径生效 | 关联:task043
 - change168 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充联想/高德的国内区域识别断言，并将促销文案样例纳入 AI 候选过滤测试 | 关联:task031

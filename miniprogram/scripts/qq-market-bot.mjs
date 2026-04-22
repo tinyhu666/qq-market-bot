@@ -2826,6 +2826,14 @@ function shouldPreferHeuristicTechAiSummary(currentSummary, heuristicSummary) {
     return true;
   }
 
+  if (
+    /(?:其技术和主流ai平台|接近为ai实验室|项目['"“”]完成\d+亿美元融资轮|用于自动化工程的ai系统)/iu.test(
+      currentSummary,
+    )
+  ) {
+    return true;
+  }
+
   const currentHan = countHanCharacters(currentSummary);
   const heuristicHan = countHanCharacters(heuristicSummary);
   const currentAscii = countAsciiLetters(currentSummary);
@@ -3470,6 +3478,7 @@ function buildAiNewsLlmPrompt(candidates, config) {
     '如果候选标题或摘要是英文，输出时必须改写成自然中文，不要因为英文标题就少报。',
     '主要根据候选标题判断事件，如果标题已经完整，不要被媒体改写摘要带偏。',
     '必须保留标题里的关键仓库名、产品名、模型名、项目名和版本号，不能把事件改写成只有模糊主体的概述。',
+    '项目代号、仓库名、模型名优先保留原文，不要擅自翻译成含糊中文别名。',
     '禁止直接照抄候选原文长句，禁止输出半句，禁止以“甚至/毕竟/另外/同时/目前/对此/旨在/面向”等承接词开头。',
     '禁止使用惊叹号、口语化表达、招聘话术、营销词、夸张修辞，以及“很能说/很能干/主打/意外揭示/反转”等评论或宣传腔。',
     '如果某条候选无法写成主体明确的硬新闻短句，就不要返回该候选。',
@@ -3494,6 +3503,7 @@ function buildAiNewsSummaryPrompt(candidates, config) {
     '如果候选标题是英文，必须改写成自然中文，不要因为英文标题就省略。',
     '每条摘要都要有明确主体，18-36 个汉字优先，不带链接、来源、序号或引号。',
     '必须保留标题中的关键公司名、产品名、模型名、项目名和版本号。',
+    '项目代号、仓库名、模型名优先保留原文，不要擅自翻译成含糊中文别名。',
     '禁止输出“凭一己之力推动社区向前走了一大步”“如何重塑”“交出答卷”这类空泛、评论或宣传腔句子。',
     '禁止写“此举”“预计”“有望”“将进一步”“可能增强竞争力”这类评论或推断。',
     '必须严格输出 JSON，对象格式为 {"items":[{"candidateId":"c01","summary":"..."}]}，items 顺序必须和候选顺序一致。',
@@ -3512,6 +3522,7 @@ function buildAiNewsSingleSummaryPrompt(candidate) {
     '你的任务是客观改写标题，不要评论事件影响，也不要重新选题。',
     '如果标题是英文，必须翻成自然中文。',
     '必须保留公司名、产品名、模型名、项目名和版本号。',
+    '项目代号、仓库名、模型名优先保留原文，不要擅自翻译成含糊中文别名。',
     '禁止写“此举”“预计”“有望”“可能”“将进一步”“推动行业向前走一步”等评论、推断或宣传腔。',
     '摘要长度以 18-36 个汉字优先，不带链接、来源、序号或引号。',
     '必须严格输出 JSON，对象格式为 {"summary":"..."}。',
@@ -4214,6 +4225,34 @@ export async function generateTechAiNewsSummaryForCandidateWithLlm(
     ...normalizedEntry.item,
     candidateId: candidate.candidateId,
   };
+  const heuristicSummary = buildHeuristicTechAiSummaryFromTitle(
+    candidate.item,
+    config.newsSummaryMaxLength,
+  );
+
+  if (
+    heuristicSummary &&
+    shouldPreferHeuristicTechAiSummary(normalizedItem.summary, heuristicSummary)
+  ) {
+    const heuristicItem = buildPinnedTechAiNewsItem(
+      {
+        ...candidate.item,
+        fingerprint:
+          candidate.item.fingerprint ||
+          buildNewsFingerprint(candidate.item, 'tech-ai'),
+        region: candidate.region || candidate.item.region || '',
+      },
+      heuristicSummary,
+      config.newsSummaryMaxLength,
+    );
+
+    if (!isLowQualityTechAiOutputItem(heuristicItem)) {
+      return {
+        ...heuristicItem,
+        candidateId: candidate.candidateId,
+      };
+    }
+  }
 
   if (isLowQualityTechAiOutputItem(normalizedItem)) {
     const pinnedItem = buildPinnedTechAiNewsItem(

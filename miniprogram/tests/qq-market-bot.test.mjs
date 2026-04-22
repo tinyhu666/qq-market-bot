@@ -11,6 +11,7 @@ import {
   formatReport,
   generateFinanceNewsWithLlm,
   generateTechAiNewsWithLlm,
+  generateTechAiNewsSummaryForCandidateWithLlm,
   normalizeSummaryLine,
   normalizeTechAiGeneratedSummaryLine,
   parseAibaseNewsItems,
@@ -2040,6 +2041,121 @@ test('buildHeuristicTechAiSummaryFromTitle rewrites editorialized english headli
     ),
     '西门子推出面向自动化工程的AI系统。',
   );
+});
+
+test('generateTechAiNewsSummaryForCandidateWithLlm prefers heuristic summary when llm rewrites project codename awkwardly', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    summary:
+                      "杰夫·贝索斯接近为AI实验室'普罗米修斯项目'完成100亿美元融资轮。",
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const item = await generateTechAiNewsSummaryForCandidateWithLlm(
+      {
+        candidateId: 'c01',
+        region: 'international',
+        item: {
+          title:
+            'Jeff Bezos nears $10 billion funding round for AI lab "Project Prometheus"',
+          summary:
+            'Jeff Bezos nears $10 billion funding round for AI lab "Project Prometheus".',
+          source: 'The Decoder',
+          sourcePriority: 6,
+          publishedAt: new Date('2026-04-22T11:00:00+08:00'),
+          heatScore: 120,
+        },
+      },
+      {
+        newsSummaryMaxLength: 64,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-chat',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(
+      item?.summary,
+      '贝索斯旗下AI实验室Project Prometheus接近完成100亿美元融资。',
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateTechAiNewsSummaryForCandidateWithLlm prefers heuristic summary when llm writes awkward platform wording', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    summary: 'Snowflake扩展其技术和主流AI平台。',
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const item = await generateTechAiNewsSummaryForCandidateWithLlm(
+      {
+        candidateId: 'c01',
+        region: 'international',
+        item: {
+          title: 'Snowflake expands its technical and mainstream AI platforms',
+          summary:
+            'Snowflake expands its technical and mainstream AI platforms.',
+          source: 'AI News',
+          sourcePriority: 4,
+          publishedAt: new Date('2026-04-22T11:05:00+08:00'),
+          heatScore: 100,
+        },
+      },
+      {
+        newsSummaryMaxLength: 48,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-chat',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(item?.summary, 'Snowflake扩展技术与通用AI平台能力。');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('generateFinanceNewsWithLlm rewrites finance candidates into concise market summaries', async () => {
