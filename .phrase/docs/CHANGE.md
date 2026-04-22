@@ -213,4 +213,17 @@
 - change210 日期:2026-04-19 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将消息结构中的 Follow Builder 更名为 X/blog，并补充最终消息只展示前 5 条和详情链接优先跳真实详情页的验收标准 | 关联:task039
 - change211 日期:2026-04-19 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 X/blog 固定前 5 条预览的优先级，以及超出部分通过统一详情链接承接的风险说明 | 关联:task039
 - change212 日期:2026-04-19 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task039，记录 X/blog 更名、长度控制与详情链接需求 | 关联:task039
+- change213 日期:2026-04-20 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:X/blog 候选聚合与总结 | 说明:将 X/blog 候选改为按博主聚合，同一博主多条动态先合并再总结，并加强候选提示词避免重复刷屏 | 关联:task040
+- change214 日期:2026-04-20 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充同一博主多条动态合并为单条记录的断言，验证保留合并信息且不再重复展示同一博主 | 关联:task040
+- change215 日期:2026-04-20 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充 X/blog 模块按博主聚合、同一博主只保留一条合并记录的当前行为说明 | 关联:task040
+- change216 日期:2026-04-20 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充 X/blog 模块按博主聚合和单轮消息单博主只保留一条的验收要求 | 关联:task040
+- change217 日期:2026-04-20 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 X/blog 候选按博主聚合的优先级，避免单轮消息被同一博主多条动态刷屏 | 关联:task040
+- change218 日期:2026-04-20 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task040，记录 X/blog 按博主聚合和去重收紧需求 | 关联:task040
+- change219 日期:2026-04-22 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:新闻模块与 AI 候选筛选 | 说明:移除 `X/blog` 模块的抓取、配置与输出链路，并新增 AI 硬新闻信号过滤，优先保留主体明确且带动作的行业新闻 | 关联:task041
+- change220 日期:2026-04-22 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:删除 `X/blog` 相关回归断言，改为验证当前仅保留 AI/财经结构与消息级去重 | 关联:task041
+- change221 日期:2026-04-22 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:将消息结构回写为价格 + AI + 财经，并补充 AI 候选优先保留硬新闻信号的当前口径 | 关联:task041
+- change222 日期:2026-04-22 | 文件:miniprogram/scripts/qq-market-bot.env.example | 操作:Modify | 影响:示例配置 | 说明:移除已废弃的 `MARKET_FOLLOW_BUILDER_NEWS_LIMIT` 示例项，保持当前配置口径与运行链路一致 | 关联:task041
+- change223 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:移除 `X/blog` 当前规格，更新为三段消息结构并补充 AI 质量收紧要求 | 关联:task041
+- change224 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:移除 `X/blog` 优先级与风险描述，补充当前 AI 质量优先与硬新闻候选筛选的执行计划 | 关联:task041
+- change225 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task041，记录移除 `X/blog` 和继续修复 AI 新闻质量的需求 | 关联:task041
 - change168 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充联想/高德的国内区域识别断言，并将促销文案样例纳入 AI 候选过滤测试 | 关联:task031

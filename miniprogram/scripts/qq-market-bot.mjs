@@ -34,12 +34,6 @@ const NVIDIA_DEVELOPER_GENAI_ATOM_URL =
   'https://developer.nvidia.com/blog/category/generative-ai/feed/';
 const QBITAI_RSS_URL = 'https://www.qbitai.com/feed';
 const AIBASE_NEWS_URL = 'https://news.aibase.com/zh/news';
-const FOLLOW_BUILDERS_X_FEED_URL =
-  'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-x.json';
-const FOLLOW_BUILDERS_BLOG_FEED_URL =
-  'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-blogs.json';
-const FOLLOW_BUILDERS_REPO_URL =
-  'https://github.com/zarazhangrui/follow-builders';
 const EASTMONEY_FAST_NEWS_URL =
   'https://np-weblist.eastmoney.com/comm/web/getFastNewsList';
 const EASTMONEY_MIAOXIANG_NEWS_URL =
@@ -50,8 +44,6 @@ const NEWS_LOOKBACK_HOURS = 24;
 const DEFAULT_TECH_NEWS_LIMIT = 5;
 const DEFAULT_AI_NEWS_LIMIT = 5;
 const DEFAULT_FINANCE_NEWS_LIMIT = 10;
-const DEFAULT_FOLLOW_BUILDER_NEWS_LIMIT = 5;
-const X_BLOG_PREVIEW_LIMIT = 5;
 const DEFAULT_MESSAGE_MAX_LENGTH = 1600;
 const DEFAULT_NEWS_SUMMARY_MAX_LENGTH = 48;
 const DEFAULT_ONEBOT_WS_TIMEOUT_MS = 10000;
@@ -99,9 +91,6 @@ const DEFAULT_REQUEST_HEADERS = {
 const NEWS_CATEGORY_CONFIG = {
   'tech-ai': {
     title: 'AI',
-  },
-  'follow-builder': {
-    title: 'X/blog',
   },
   finance: {
     title: '财经',
@@ -157,21 +146,6 @@ const TECH_AI_NEWS_SOURCES = [
     format: 'rss',
     sourcePriority: 7,
     region: 'domestic',
-  },
-];
-
-const FOLLOW_BUILDER_SOURCES = [
-  {
-    name: 'Follow Builders X',
-    url: FOLLOW_BUILDERS_X_FEED_URL,
-    format: 'json-x',
-    sourcePriority: 8,
-  },
-  {
-    name: 'Follow Builders Blogs',
-    url: FOLLOW_BUILDERS_BLOG_FEED_URL,
-    format: 'json-blogs',
-    sourcePriority: 9,
   },
 ];
 
@@ -295,6 +269,13 @@ const TECH_AI_NEWS_FILTER_CONFIG = {
     '周年庆',
     '旗舰店',
     '直播活动',
+    '大赛',
+    '赛事',
+    '榜单',
+    '福布斯',
+    '峰会',
+    '沙盒',
+    '独角兽',
     '手机发布',
     '像素',
     '长焦',
@@ -309,15 +290,6 @@ const TECH_AI_NEWS_FILTER_CONFIG = {
     'ai种子',
   ],
 };
-
-const FOLLOW_BUILDER_EVENT_PATTERN =
-  /(?:announce(?:d|ment)?|launch(?:ed)?|release(?:d)?|ship(?:ped)?|roll(?:ed)? out|rename(?:d)?|rebrand(?:ed)?|open[-\s]?sourc(?:e|ed)|fix(?:ed)?|available|decentraliz(?:e|ed)|join(?:ed)?|left|leaving|fund(?:ing|ed)|acquir(?:e|ed)|partner(?:ed)?|introduc(?:e|ed)|unveil(?:ed)?|upgrade(?:d)?|support(?:ed)?|推出|发布|上线|开源|修复|更名|离开|加入|融资|收购|升级|支持)/iu;
-const FOLLOW_BUILDER_ENTITY_PATTERN =
-  /(?:ai|agent|agents|model|models|openai|anthropic|claude|google|googlelabs|gemini|flow|cursor|replit|vercel|servicenow|box|copilot|qwen|deepseek|mcp|人工智能|智能体|模型|推理|编码|产品|平台)/iu;
-const FOLLOW_BUILDER_LOW_SIGNAL_PATTERN =
-  /^(?:wow|lol|grateful|thanks?|thank you|excited(?: about this)?|best agent|having a lot of fun|great watch|worth a watch|can['’]t wait|cant wait|i guess)\b/iu;
-const FOLLOW_BUILDER_PROMO_PATTERN =
-  /(?:watch now|great watch|here['’]s a video|video I just made|demoing \d+ use cases|with a lil help|changed how I think about products forever|having a lot of fun|worth a watch)/iu;
 
 const TECH_AI_NEWS_REGION_CONFIG = {
   domesticKeywords: [
@@ -402,6 +374,17 @@ const TECH_AI_NEWS_REGION_CONFIG = {
     'iphone',
   ],
 };
+
+const TECH_AI_HARD_NEWS_ACTION_PATTERN =
+  /(?:发布|推出|上线|开源|升级|更新|修复|接入|支持|收购|并购|融资|筹资|估值|合作|签约|发布会|白皮书|财报|营收|盈利|裁员|任命|离职|回购|下架|禁用|删除|撤回|开放|商用|预览|扩展|强化|建设|投建|扩建|建厂|将建|launch(?:ed)?|release(?:d)?|ship(?:ped)?|roll(?:ed)? out|open[-\s]?sourc(?:e|ed)|fund(?:ing|ed)?|raise[sd]?|acquir(?:e|ed)|partner(?:ed)?|support(?:s|ed)?|update(?:d)?|upgrade(?:d)?|fix(?:ed)?|available|preview|general availability|appoint(?:ed)?|step(?:ped)? down|join(?:ed)?|left)/iu;
+const TECH_AI_HARD_NEWS_ENTITY_PATTERN =
+  /(?:openai|anthropic|google|google deepmind|deepmind|microsoft|meta|nvidia|apple|amazon|aws|tesla|特斯拉|github|xai|perplexity|mistral|hugging face|cursor|replit|service ?now|box|oracle|salesforce|阿里|阿里云|腾讯|百度|华为|字节|字节跳动|快手|可灵|联想|高德|面壁|智谱|月之暗面|商汤|昆仑万维|百川|阶跃|MiniMax|通义|千问|qwen|deepseek|gemini|claude|chatgpt|copilot|gemma|llama|grok|mcp|api|sdk|agent|智能体|大模型|模型|推理|算力|芯片|gpu)/iu;
+const TECH_AI_HARD_NEWS_FORMAT_PATTERN =
+  /(?:\b(?:v?\d+(?:\.\d+){0,2}|4o|o3|o4|r1|r2)\b|[A-Z][A-Za-z0-9.+-]{1,20}(?:\s?(?:API|SDK|Model|Models|Agent|Agents|Studio|Copilot|Chat|Code))?)/u;
+const TECH_AI_ANALYSIS_NOISE_PATTERN =
+  /(?:专访|对话|访谈|观察|解读|复盘|点评|评论|教程|指南|测评|体验|试用|盘点|合集|精选|荐读|报名|直播|圆桌|大会|峰会|论坛|公开课|实测|评测|上手|测一测|为什么|如何|趋势|启示|思考|播客|听听|现场|回放)/u;
+const TECH_AI_SOFT_TOPIC_PATTERN =
+  /(?:观点|看法|趋势|机遇|挑战|故事|玩法|灵感|创意|案例分享|心得|实战|经验|拆解|解析|观察)/u;
 
 const FINANCE_NEWS_FILTER_CONFIG = {
   positiveKeywords: [
@@ -1291,10 +1274,6 @@ function limitForNewsCategory(category, config) {
     return config.financeNewsLimit;
   }
 
-  if (category === 'follow-builder') {
-    return config.followBuilderNewsLimit;
-  }
-
   return config.techAiNewsLimit;
 }
 
@@ -1918,6 +1897,22 @@ function isLowQualityTechAiSummaryLine(text) {
 function isLowQualityTechAiOutputItem(item) {
   const title = normalizeTechAiNewsTitle(item.title || item.summary || '');
   const summary = normalizeWhitespace(item.summary || item.title || '');
+  const titleSignalItem = {
+    ...item,
+    title,
+    summary: title,
+  };
+  const summarySignalItem = {
+    ...item,
+    title: summary,
+    summary,
+  };
+  const titleHasHardNewsSignal =
+    hasTechAiHardNewsSignal(titleSignalItem) ||
+    hasTechAiConcreteEntitySignal(titleSignalItem);
+  const summaryHasHardNewsSignal =
+    hasTechAiHardNewsSignal(summarySignalItem) ||
+    hasTechAiConcreteEntitySignal(summarySignalItem);
 
   return (
     isExcludedTechAiNewsItem({
@@ -1925,483 +1920,9 @@ function isLowQualityTechAiOutputItem(item) {
       title,
       summary,
     }) ||
+    (titleHasHardNewsSignal && !summaryHasHardNewsSignal) ||
     (isLowQualityTechAiSummaryLine(summary) &&
       isLowQualityTechAiSummaryLine(title))
-  );
-}
-
-function getFirstStringValue(record, keys = []) {
-  for (const key of keys) {
-    const value = record?.[key];
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim();
-    }
-  }
-
-  return '';
-}
-
-function parseOptionalDate(value) {
-  const date = new Date(value || '');
-  return Number.isNaN(date.valueOf()) ? null : date;
-}
-
-function stripFollowBuilderNoise(text) {
-  return normalizeWhitespace(
-    stripHtml(String(text || ''))
-      .replace(/https?:\/\/\S+/giu, ' ')
-      .replace(/\bRT\s+@/giu, '@')
-      .replace(/[#*_`]+/gu, ' ')
-      .replace(/[^\S\r\n]+/gu, ' ')
-      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, ' '),
-  );
-}
-
-function buildFollowBuilderLeadText(text, maxLength = 220) {
-  const normalized = stripFollowBuilderNoise(text);
-  if (!normalized) {
-    return '';
-  }
-
-  const lines = normalized
-    .split(/\n+/u)
-    .map((item) => normalizeWhitespace(item))
-    .filter(Boolean);
-  const picked = [];
-
-  for (const line of lines) {
-    if (/^(?:speaker\s*\d+|\d{2}:\d{2}\s*-\s*\d{2}:\d{2})$/iu.test(line)) {
-      continue;
-    }
-
-    picked.push(line);
-    if (picked.join(' ').length >= Math.min(maxLength, 120)) {
-      break;
-    }
-  }
-
-  return truncateText(normalizeWhitespace(picked.join(' ')), maxLength);
-}
-
-function buildFollowBuilderTitle(text) {
-  const leadText = buildFollowBuilderLeadText(text, 140);
-  if (!leadText) {
-    return '';
-  }
-
-  const sentenceCandidates = leadText
-    .split(/[.!?。！？]/u)
-    .map((item) => normalizeWhitespace(item))
-    .filter(Boolean);
-  const title =
-    sentenceCandidates[0] ||
-    normalizeWhitespace(leadText.split(/\n/u).find(Boolean) || '');
-
-  return truncateText(title, 120);
-}
-
-function buildFollowBuilderSummaryWithPrefix(builderName, text, maxLength) {
-  const normalizedText = normalizeWhitespace(text || '');
-  if (!builderName || !normalizedText) {
-    return normalizedText;
-  }
-
-  if (normalizedText.includes(builderName)) {
-    return normalizedText;
-  }
-
-  const prefixed = normalizeSummaryLine(
-    `${builderName}：${normalizedText}`,
-    maxLength,
-  );
-  return prefixed || normalizedText;
-}
-
-function isLowQualityFollowBuilderSummaryLine(text) {
-  if (isLowQualitySummaryLine(text)) {
-    return true;
-  }
-
-  return (
-    FOLLOW_BUILDER_LOW_SIGNAL_PATTERN.test(text) ||
-    FOLLOW_BUILDER_PROMO_PATTERN.test(text) ||
-    /(?:有意思|值得一看|挺有趣|很有趣|聊了很多|值得关注|看起来)/u.test(text)
-  );
-}
-
-function buildFollowBuilderNewsItem(item, maxLength) {
-  const followBuilderMaxLength = Math.max(maxLength, 72);
-  const cleanedTitle = normalizeWhitespace(item.title || item.summary || '');
-  const cleanedSummarySource = normalizeWhitespace(
-    item.summary || item.rawText || item.title || '',
-  );
-  const generatedSummary = normalizeSummaryLine(
-    cleanedSummarySource,
-    followBuilderMaxLength,
-  );
-  const fallbackSummary = normalizeSummaryLine(
-    cleanedTitle,
-    followBuilderMaxLength,
-  );
-  const baseSummary =
-    (item.preferGeneratedSummary &&
-    !isLowQualityFollowBuilderSummaryLine(generatedSummary)
-      ? generatedSummary
-      : '') ||
-    fallbackSummary ||
-    generatedSummary ||
-    appendFullStop(
-      truncateText(
-        cleanedSummarySource || cleanedTitle,
-        followBuilderMaxLength,
-      ),
-    );
-
-  return {
-    title: cleanedTitle,
-    summary: buildFollowBuilderSummaryWithPrefix(
-      item.builderName || '',
-      baseSummary,
-      followBuilderMaxLength,
-    ),
-    source: item.source || 'Follow Builders',
-    publishedAt: item.publishedAt instanceof Date ? item.publishedAt : null,
-    fingerprint: item.fingerprint || '',
-    builderName: item.builderName || '',
-    builderHandle: item.builderHandle || '',
-    sourceType: item.sourceType || '',
-    heatScore: item.heatScore || 0,
-    engagementScore: item.engagementScore || 0,
-    detailUrl: item.detailUrl || '',
-  };
-}
-
-function isLowQualityFollowBuilderOutputItem(item) {
-  const title = normalizeWhitespace(item.title || item.summary || '');
-  const summary = normalizeWhitespace(item.summary || item.title || '');
-
-  return (
-    isLowQualityFollowBuilderSummaryLine(summary) &&
-    isLowQualityFollowBuilderSummaryLine(title)
-  );
-}
-
-function parseFollowBuilderBlogs(payload, source) {
-  const feed = JSON.parse(payload);
-  const blogs = Array.isArray(feed?.blogs) ? feed.blogs : [];
-
-  return blogs
-    .map((item) => {
-      const title = buildFollowBuilderTitle(
-        getFirstStringValue(item, ['title', 'summary', 'description']),
-      );
-      const summary = buildFollowBuilderLeadText(
-        getFirstStringValue(item, [
-          'summary',
-          'description',
-          'excerpt',
-          'content',
-          'title',
-        ]),
-      );
-
-      return {
-        title,
-        summary: summary || title,
-        rawText: summary || title,
-        source: source.name,
-        sourceType: 'blog',
-        sourcePriority: source.sourcePriority,
-        builderName:
-          getFirstStringValue(item, ['name', 'author', 'source']) ||
-          'Official Blog',
-        builderHandle: '',
-        detailUrl: getFirstStringValue(item, ['url']),
-        publishedAt: parseOptionalDate(
-          getFirstStringValue(item, [
-            'publishedAt',
-            'published_at',
-            'datePublished',
-            'date',
-          ]),
-        ),
-        engagementScore: 0,
-      };
-    })
-    .filter((item) => item.title || item.summary);
-}
-
-function parseFollowBuilderXFeed(payload, source) {
-  const feed = JSON.parse(payload);
-  const accounts = Array.isArray(feed?.x) ? feed.x : [];
-
-  return accounts.flatMap((account) => {
-    const builderName = normalizeWhitespace(account?.name || '');
-    const builderHandle = normalizeWhitespace(account?.handle || '');
-    const tweets = Array.isArray(account?.tweets) ? account.tweets : [];
-
-    return tweets
-      .map((tweet) => {
-        const rawText = buildFollowBuilderLeadText(tweet?.text || '');
-        const title = buildFollowBuilderTitle(rawText);
-        const likes = toNumberLike(tweet?.likes) || 0;
-        const retweets = toNumberLike(tweet?.retweets) || 0;
-        const replies = toNumberLike(tweet?.replies) || 0;
-
-        return {
-          title,
-          summary: rawText || title,
-          rawText,
-          source: source.name,
-          sourceType: 'x',
-          sourcePriority: source.sourcePriority,
-          builderName,
-          builderHandle,
-          builderBio: normalizeWhitespace(account?.bio || ''),
-          detailUrl: normalizeWhitespace(tweet?.url || ''),
-          publishedAt: parseOptionalDate(tweet?.createdAt || ''),
-          engagementScore: likes + retweets * 4 + replies * 2,
-          likes,
-          retweets,
-          replies,
-        };
-      })
-      .filter((item) => item.title || item.summary);
-  });
-}
-
-function parseFollowBuilderSourceItems(payload, source) {
-  if (source.format === 'json-blogs') {
-    return parseFollowBuilderBlogs(payload, source);
-  }
-
-  if (source.format === 'json-x') {
-    return parseFollowBuilderXFeed(payload, source);
-  }
-
-  throw new Error(`不支持的 X/blog 源格式：${source.format}`);
-}
-
-function isExcludedFollowBuilderItem(item) {
-  const title = normalizeWhitespace(item.title || '');
-  const text = normalizeWhitespace(item.rawText || item.summary || title);
-  const haystack =
-    `${title} ${text} ${item.builderName || ''} ${item.builderBio || ''}`.toLowerCase();
-  const hasEventSignal = FOLLOW_BUILDER_EVENT_PATTERN.test(haystack);
-
-  if (!title && !text) {
-    return true;
-  }
-
-  if (FOLLOW_BUILDER_LOW_SIGNAL_PATTERN.test(text)) {
-    return true;
-  }
-
-  if (FOLLOW_BUILDER_PROMO_PATTERN.test(text) && !hasEventSignal) {
-    return true;
-  }
-
-  if (item.sourceType === 'x' && item.engagementScore < 60 && !hasEventSignal) {
-    return true;
-  }
-
-  if (
-    item.sourceType === 'x' &&
-    item.engagementScore < 500 &&
-    !hasEventSignal &&
-    !FOLLOW_BUILDER_ENTITY_PATTERN.test(haystack)
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-function isRelevantFollowBuilderItem(item) {
-  const haystack =
-    `${item.title || ''} ${item.rawText || item.summary || ''} ${item.builderName || ''}`.toLowerCase();
-
-  return (
-    FOLLOW_BUILDER_EVENT_PATTERN.test(haystack) ||
-    FOLLOW_BUILDER_ENTITY_PATTERN.test(haystack) ||
-    (item.sourceType === 'x' && item.engagementScore >= 500)
-  );
-}
-
-function scoreFollowBuilderItem(item, now = new Date()) {
-  const haystack =
-    `${item.title || ''} ${item.rawText || item.summary || ''} ${item.builderName || ''} ${item.builderBio || ''}`.toLowerCase();
-  const publishedAtValue = getPublishedAtValue(item.publishedAt);
-  const ageHours =
-    publishedAtValue > 0
-      ? Math.max(0, (now.valueOf() - publishedAtValue) / (60 * 60 * 1000))
-      : NEWS_LOOKBACK_HOURS;
-  const recencyBoost =
-    Math.max(0, NEWS_LOOKBACK_HOURS - Math.min(ageHours, NEWS_LOOKBACK_HOURS)) *
-    1.2;
-  const engagementBoost = Math.min((item.engagementScore || 0) / 80, 30);
-  const officialBoost =
-    /(?:ceo|vp|president|research|googlelabs|openai|anthropic|claude)/iu.test(
-      `${item.builderName || ''} ${item.builderBio || ''} ${item.builderHandle || ''}`,
-    )
-      ? 8
-      : 0;
-  const sourceTypeBoost = item.sourceType === 'blog' ? 12 : 5;
-  const eventBoost = FOLLOW_BUILDER_EVENT_PATTERN.test(haystack) ? 18 : 0;
-  const entityBoost = FOLLOW_BUILDER_ENTITY_PATTERN.test(haystack) ? 6 : 0;
-
-  return (
-    sourceTypeBoost +
-    officialBoost +
-    eventBoost +
-    entityBoost +
-    engagementBoost +
-    recencyBoost
-  );
-}
-
-function buildFollowBuilderCandidateList(items) {
-  return items.map((item, index) => ({
-    candidateId: `f${String(index + 1).padStart(2, '0')}`,
-    item: {
-      ...item,
-      heatScore: Number.isFinite(item.heatScore) ? item.heatScore : 0,
-    },
-  }));
-}
-
-function formatFollowBuilderLlmCandidateLine(candidateId, item) {
-  const publishedAt =
-    item.publishedAt instanceof Date &&
-    !Number.isNaN(item.publishedAt.valueOf())
-      ? item.publishedAt.toISOString()
-      : '';
-
-  return [
-    `${candidateId}`,
-    item.sourceType || 'x',
-    `${item.builderName || '未知作者'}${
-      item.builderHandle ? `(@${item.builderHandle})` : ''
-    }`,
-    `热度${Math.round(item.heatScore || 0)}`,
-    `互动${item.engagementScore || 0}`,
-    publishedAt || '未知时间',
-    item.title || item.summary || '',
-  ].join(' | ');
-}
-
-function buildFollowBuilderNewsLlmPrompt(candidates, config) {
-  return [
-    `你是一名中文科技编辑，请基于 X/blog 候选输出最多 ${Math.min(
-      X_BLOG_PREVIEW_LIMIT,
-      candidates.length,
-    )} 条 X / blog 动态简讯。`,
-    '候选来自 X 和官方 blog，只能基于候选列表改写，不能编造列表外事实。',
-    '优先保留真正的事件：发布、上线、更名、开源、修复、组织调整、离职入职、官方说明、产品更新。',
-    '过滤纯感想、转发感叹、宣传导流、泛观点和没有明确信息增量的帖子。',
-    '每条输出一句中文摘要，18-40 个汉字优先，必须有明确主体，保留公司名、产品名、模型名和人名。',
-    '如果内容只是“Excited about this”“great watch”“having fun”这类感想，不要返回。',
-    '必须严格输出 JSON，对象格式为 {"items":[{"candidateId":"f01","summary":"..."}]}。',
-    '候选列表：',
-    ...candidates.map(({ candidateId, item }) =>
-      formatFollowBuilderLlmCandidateLine(candidateId, item),
-    ),
-  ].join('\n');
-}
-
-function buildFollowBuilderDetailLine(overflowItems = []) {
-  if (!Array.isArray(overflowItems) || overflowItems.length === 0) {
-    return '';
-  }
-
-  const detailUrl =
-    overflowItems.find((item) => normalizeWhitespace(item?.detailUrl || ''))
-      ?.detailUrl || FOLLOW_BUILDERS_REPO_URL;
-
-  return `更多总结（另有 ${overflowItems.length} 条）：点击查看详情 ${detailUrl}`;
-}
-
-function normalizeFollowBuilderNewsLlmItems(payload, candidates, config) {
-  const candidateMap = new Map(
-    candidates.map((candidate) => [candidate.candidateId, candidate]),
-  );
-  const rawItems = Array.isArray(payload?.items) ? payload.items : [];
-  const normalizedItems = [];
-  const seenCandidateIds = new Set();
-
-  for (const rawItem of rawItems) {
-    const candidateId = String(rawItem?.candidateId || '').trim();
-    if (!candidateId || seenCandidateIds.has(candidateId)) {
-      continue;
-    }
-
-    const candidateEntry = candidateMap.get(candidateId);
-    if (!candidateEntry) {
-      continue;
-    }
-
-    const normalizedEntry = normalizeNewsLlmSelectedItem(
-      rawItem,
-      candidateEntry,
-      config,
-      'follow-builder',
-      buildFollowBuilderNewsItem,
-    );
-    const normalizedItem = {
-      ...normalizedEntry.item,
-      candidateId,
-    };
-
-    if (isLowQualityFollowBuilderOutputItem(normalizedItem)) {
-      continue;
-    }
-
-    normalizedItems.push(normalizedItem);
-    seenCandidateIds.add(candidateId);
-  }
-
-  return normalizedItems;
-}
-
-export function selectFollowBuilderNewsItems(
-  items,
-  config,
-  now = new Date(),
-  limit = config.followBuilderNewsLimit,
-) {
-  const candidates = items
-    .filter(
-      (item) =>
-        !(item.publishedAt instanceof Date) ||
-        isWithinLookbackWindow(item.publishedAt, NEWS_LOOKBACK_HOURS, now),
-    )
-    .map((item) => ({
-      item,
-      excluded: isExcludedFollowBuilderItem(item),
-      relevant: isRelevantFollowBuilderItem(item),
-      score: scoreFollowBuilderItem(item, now),
-      publishedAt: getPublishedAtValue(item.publishedAt),
-    }))
-    .filter((entry) => !entry.excluded && entry.relevant)
-    .sort(
-      (left, right) =>
-        right.score - left.score || right.publishedAt - left.publishedAt,
-    );
-
-  const dedupedCandidates = selectUniqueNewsEntries(candidates, (entry) =>
-    normalizeTechAiNewsTitle(
-      entry.item.title || entry.item.summary || entry.item.rawText || '',
-    ),
-  );
-
-  return dedupedCandidates.slice(0, limit).map((entry) =>
-    buildFollowBuilderNewsItem(
-      {
-        ...entry.item,
-        heatScore: entry.score,
-      },
-      config.newsSummaryMaxLength,
-    ),
   );
 }
 
@@ -3149,6 +2670,14 @@ function isExcludedTechAiNewsItem(item) {
     return true;
   }
 
+  if (/^(?:how to|run |build |use |train |deploy )/iu.test(title)) {
+    return true;
+  }
+
+  if (TECH_AI_ANALYSIS_NOISE_PATTERN.test(title)) {
+    return true;
+  }
+
   if (
     /(?:会员可享|灵感值|[89]折优惠|平台还延长了|优惠计划|限时[0-9一二三四五六七八九]折|折起|会员模型)/u.test(
       title,
@@ -3207,6 +2736,28 @@ function isExcludedTechAiNewsItem(item) {
   );
 }
 
+function hasTechAiHardNewsSignal(item) {
+  const haystack =
+    `${item.title || ''} ${item.summary || ''} ${item.source || ''}`.toLowerCase();
+
+  return (
+    TECH_AI_HARD_NEWS_ACTION_PATTERN.test(haystack) ||
+    /(?:\b(?:ipo|series\s?[a-f]|seed)\b|a轮|b轮|c轮|pre-a|天使轮|种子轮|估值|融资|收购|并购|白皮书|财报|营收|利润|q\d)/iu.test(
+      haystack,
+    )
+  );
+}
+
+function hasTechAiConcreteEntitySignal(item) {
+  const haystack =
+    `${item.title || ''} ${item.summary || ''} ${item.source || ''}`.toLowerCase();
+
+  return (
+    TECH_AI_HARD_NEWS_ENTITY_PATTERN.test(haystack) ||
+    TECH_AI_HARD_NEWS_FORMAT_PATTERN.test(item.title || item.summary || '')
+  );
+}
+
 function isRelevantTechAiNewsItem(item) {
   const haystack =
     `${item.title} ${item.summary || ''} ${item.source || ''}`.toLowerCase();
@@ -3218,8 +2769,30 @@ function isRelevantTechAiNewsItem(item) {
     haystack,
     TECH_AI_NEWS_FILTER_CONFIG.infraKeywords,
   );
+  const hardNewsSignal = hasTechAiHardNewsSignal(item);
+  const concreteEntitySignal = hasTechAiConcreteEntitySignal(item);
+  const isOfficialishSource = (item.sourcePriority || 0) >= 8;
 
-  return coreKeywordHits > 0 || infraKeywordHits > 0;
+  if (coreKeywordHits === 0 && infraKeywordHits === 0) {
+    return false;
+  }
+
+  if (
+    TECH_AI_ANALYSIS_NOISE_PATTERN.test(item.title || '') ||
+    TECH_AI_SOFT_TOPIC_PATTERN.test(item.summary || '')
+  ) {
+    return false;
+  }
+
+  if (hardNewsSignal) {
+    return true;
+  }
+
+  if (isOfficialishSource && concreteEntitySignal) {
+    return true;
+  }
+
+  return concreteEntitySignal && (item.sourcePriority || 0) >= 7;
 }
 
 function scoreTechAiNewsItem(item, now = new Date()) {
@@ -3261,12 +2834,26 @@ function scoreTechAiNewsItem(item, now = new Date()) {
       : (item.sourcePriority || 0) >= 8
         ? 6
         : 0;
+  const hardNewsSignal = hasTechAiHardNewsSignal(item);
+  const concreteEntitySignal = hasTechAiConcreteEntitySignal(item);
   const actionBoost =
     /(?:发布|推出|开源|升级|上线|融资|收购|并购|合作|删除|下架|转型|财报|筹资|估值|白皮书)/u.test(
       haystack,
     )
       ? 6
       : 0;
+  const hardNewsBoost = hardNewsSignal ? 12 : 0;
+  const concreteEntityBoost = concreteEntitySignal ? 6 : 0;
+  const analysisPenalty = TECH_AI_ANALYSIS_NOISE_PATTERN.test(
+    `${item.title || ''} ${item.summary || ''}`,
+  )
+    ? 14
+    : 0;
+  const softTopicPenalty = TECH_AI_SOFT_TOPIC_PATTERN.test(
+    `${item.title || ''} ${item.summary || ''}`,
+  )
+    ? 8
+    : 0;
   const softPenalty = softKeywordHits * 5;
 
   return (
@@ -3280,7 +2867,11 @@ function scoreTechAiNewsItem(item, now = new Date()) {
     sourceCoverageBoost +
     recencyBoost +
     actionBoost -
-    softPenalty
+    hardNewsBoost +
+    concreteEntityBoost -
+    softPenalty -
+    analysisPenalty -
+    softTopicPenalty
   );
 }
 
@@ -4308,33 +3899,6 @@ export async function generateFinanceNewsWithLlm(candidates, config) {
   return normalizeFinanceNewsLlmItems(payload, candidates, config);
 }
 
-export async function generateFollowBuilderNewsWithLlm(candidates, config) {
-  const payload = await fetchNewsLlmPayload(
-    buildFollowBuilderNewsLlmPrompt(candidates, config),
-    config,
-    {
-      type: 'object',
-      properties: {
-        items: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              candidateId: { type: 'string' },
-              summary: { type: 'string' },
-            },
-            required: ['candidateId', 'summary'],
-          },
-        },
-      },
-      required: ['items'],
-    },
-    'X/blog',
-  );
-
-  return normalizeFollowBuilderNewsLlmItems(payload, candidates, config);
-}
-
 function buildEastmoneyFinanceNewsItem(item, maxLength) {
   const financeMaxLength = Math.max(maxLength, 68);
   const cleanedSummarySource = stripFinanceNoise(
@@ -4637,114 +4201,6 @@ async function fetchTechAiNewsCategory(config) {
   };
 }
 
-async function fetchFollowBuilderNewsCategory(config) {
-  const category = 'follow-builder';
-  const candidateLimit =
-    Math.max(config.followBuilderNewsLimit, X_BLOG_PREVIEW_LIMIT) *
-    DEFAULT_DAILY_NEWS_FETCH_MULTIPLIER;
-  const previewLimit = X_BLOG_PREVIEW_LIMIT;
-  const now = new Date();
-  const feedResults = await Promise.allSettled(
-    FOLLOW_BUILDER_SOURCES.map(async (source) => {
-      const payload = await fetchTextWithFallbacks(source.url);
-      return parseFollowBuilderSourceItems(payload, source);
-    }),
-  );
-
-  const candidateItems = selectFollowBuilderNewsItems(
-    feedResults
-      .filter((result) => result.status === 'fulfilled')
-      .flatMap((result) => result.value),
-    config,
-    now,
-    candidateLimit,
-  );
-  const unseenCandidateResult =
-    config.dailyNewsDedupEnabled && config.currentDailyNewsState
-      ? filterPreviouslySentNewsItems(
-          candidateItems,
-          category,
-          config.currentDailyNewsState,
-          config,
-          config.generatedAtForNews || new Date(),
-          {
-            includeAllCategories: true,
-          },
-        )
-      : {
-          items: candidateItems,
-          filteredCount: 0,
-        };
-  const crossSectionFilteredResult =
-    Array.isArray(config.excludedNewsFingerprints) &&
-    config.excludedNewsFingerprints.length > 0
-      ? filterNewsItemsByFingerprints(
-          unseenCandidateResult.items,
-          category,
-          config.excludedNewsFingerprints,
-        )
-      : {
-          items: unseenCandidateResult.items,
-          filteredCount: 0,
-        };
-  const availableItems = crossSectionFilteredResult.items;
-  let orderedItems = [...availableItems];
-  let items = orderedItems.slice(0, previewLimit);
-
-  if (
-    config.aiNewsLlmEnabled &&
-    resolveNewsLlmProviders(config).length > 0 &&
-    items.length > 0
-  ) {
-    try {
-      const llmItems = await generateFollowBuilderNewsWithLlm(
-        buildFollowBuilderCandidateList(availableItems),
-        config,
-      );
-      if (llmItems.length > 0) {
-        orderedItems = llmItems;
-        items = orderedItems.slice(0, previewLimit);
-      }
-    } catch (error) {
-      console.warn(
-        `[qq-market-bot] X/blog LLM 汇总失败，已回退到规则筛选：${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-  }
-
-  if (items.length === 0) {
-    const errors = feedResults
-      .filter((result) => result.status === 'rejected')
-      .map((result) =>
-        result.reason instanceof Error
-          ? result.reason.message
-          : String(result.reason),
-      )
-      .filter(Boolean)
-      .join('；');
-
-    if (errors) {
-      throw new Error(errors);
-    }
-  }
-
-  return {
-    category,
-    title: NEWS_CATEGORY_CONFIG[category].title,
-    items,
-    detailLine: buildFollowBuilderDetailLine(orderedItems.slice(previewLimit)),
-    emptyText:
-      items.length === 0 &&
-      (unseenCandidateResult.filteredCount > 0 ||
-        crossSectionFilteredResult.filteredCount > 0)
-        ? '本轮暂无新的 X/blog 动态。'
-        : '',
-    error: '',
-  };
-}
-
 function buildFinanceHeadlineNewsItem(item, maxLength) {
   const financeMaxLength = Math.max(maxLength, 68);
   const cleanedTitle = normalizeFinanceHeadline(
@@ -5039,10 +4495,6 @@ export async function fetchNewsSection(category, config) {
     return fetchFinanceNewsCategory(config);
   }
 
-  if (category === 'follow-builder') {
-    return fetchFollowBuilderNewsCategory(config);
-  }
-
   return fetchTechAiNewsCategory(config);
 }
 
@@ -5087,10 +4539,6 @@ export function readConfig(
     financeNewsLimit: toPositiveInteger(
       env.MARKET_FINANCE_NEWS_LIMIT,
       DEFAULT_FINANCE_NEWS_LIMIT,
-    ),
-    followBuilderNewsLimit: toPositiveInteger(
-      env.MARKET_FOLLOW_BUILDER_NEWS_LIMIT,
-      DEFAULT_FOLLOW_BUILDER_NEWS_LIMIT,
     ),
     newsSummaryMaxLength: toPositiveInteger(
       env.MARKET_NEWS_SUMMARY_MAX_LENGTH,
@@ -5512,7 +4960,7 @@ export async function collectQuotes(config, quoteFetcher = fetchQuote) {
 }
 
 export async function collectNews(config, newsFetcher = fetchNewsSection) {
-  const categories = ['tech-ai', 'follow-builder', 'finance'];
+  const categories = ['tech-ai', 'finance'];
   const sections = [];
   const seenFingerprints = [];
 
@@ -6034,7 +5482,6 @@ QQ 官方机器人模式：
   MARKET_TECH_AI_NEWS_LIMIT=10
   MARKET_TECH_NEWS_LIMIT=5
   MARKET_AI_NEWS_LIMIT=5
-  MARKET_FOLLOW_BUILDER_NEWS_LIMIT=5
   MARKET_FINANCE_NEWS_LIMIT=10
   MARKET_NEWS_SUMMARY_MAX_LENGTH=48
   MARKET_MESSAGE_MAX_LENGTH=1600
