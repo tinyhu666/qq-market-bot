@@ -75,6 +75,7 @@ test('readConfig defaults ai llm provider to deepseek only', () => {
 
   assert.equal(config.aiNewsLlmProvider, 'deepseek');
   assert.equal(config.aiNewsLlmFallbackProvider, 'deepseek');
+  assert.equal(config.aiNewsDeepseekModel, 'deepseek-v4-pro');
 });
 
 test('readConfig parses onebot extra targets for group and private delivery', () => {
@@ -1526,6 +1527,106 @@ test('generateTechAiNewsWithLlm falls back to DeepSeek when Gemini fails', async
   }
 });
 
+test('generateTechAiNewsWithLlm disables DeepSeek thinking and retries empty structured content once', async () => {
+  const originalFetch = globalThis.fetch;
+  const requestBodies = [];
+  let requestCount = 0;
+
+  globalThis.fetch = async (url, options = {}) => {
+    const requestUrl = String(url);
+
+    if (!requestUrl.includes('api.deepseek.com/chat/completions')) {
+      throw new Error(`unexpected url: ${requestUrl}`);
+    }
+
+    requestCount += 1;
+    requestBodies.push(JSON.parse(String(options.body || '{}')));
+
+    if (requestCount === 1) {
+      return {
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  reasoning_content: '先分析候选，再输出 JSON',
+                  content: '',
+                },
+              },
+            ],
+          }),
+      };
+    }
+
+    return {
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  items: [
+                    {
+                      candidateId: 'c01',
+                      summary:
+                        'OpenAI 发布 Responses API 更新并扩展智能体调用能力。',
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+    };
+  };
+
+  try {
+    const items = await generateTechAiNewsWithLlm(
+      [
+        {
+          candidateId: 'c01',
+          region: 'international',
+          item: {
+            title: 'OpenAI 发布 Responses API 更新并扩展智能体调用能力',
+            summary: 'OpenAI 发布 Responses API 更新并扩展智能体调用能力。',
+            source: 'OpenAI News',
+            sourcePriority: 10,
+            publishedAt: new Date('2026-04-01T10:00:00+08:00'),
+            heatScore: 220,
+          },
+        },
+      ],
+      {
+        techAiNewsLimit: 10,
+        newsSummaryMaxLength: 48,
+        aiNewsLlmProvider: 'deepseek',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: '',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-v4-pro',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(requestCount, 2);
+    assert.equal(items.length, 1);
+    assert.match(items[0].summary, /Responses API/u);
+    assert.deepEqual(
+      requestBodies.map((body) => body.thinking),
+      [{ type: 'disabled' }, { type: 'disabled' }],
+    );
+    assert.deepEqual(
+      requestBodies.map((body) => body.response_format),
+      [{ type: 'json_object' }, { type: 'json_object' }],
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('generateTechAiNewsWithLlm skips clickbait candidates and falls back from low-quality summaries', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
@@ -2390,4 +2491,88 @@ test('runMarketPush supports dry-run mode', async () => {
   assert.match(result.message, /【AI Top 1】/);
   assert.match(result.message, /【财经 Top 0】/);
   assert.match(result.message, /暂无符合条件的新闻。/u);
+});
+
+test('runMarketPush tolerates single quote fetch failure and still pushes report', async () => {
+  const pushedMessages = [];
+  const result = await runMarketPush({
+    env: {
+      TWELVE_DATA_API_KEY: 'demo-key',
+      QQ_BOT_MODE: 'onebot',
+      ONEBOT_HTTP_URL: 'http://127.0.0.1:3000',
+      ONEBOT_MESSAGE_TYPE: 'group',
+      ONEBOT_TARGET_ID: '123456',
+    },
+    generatedAt: new Date('2026-04-27T18:20:00+08:00'),
+    quoteFetcher: async (symbolConfig) => {
+      if (symbolConfig.label === 'SH') {
+        throw new Error('上证行情接口超时');
+      }
+
+      return {
+        symbol: symbolConfig.symbol,
+        price:
+          symbolConfig.label === 'XAU'
+            ? 3288.66
+            : symbolConfig.label === 'XAG'
+              ? 32.118
+              : symbolConfig.label === 'WTI'
+                ? 61.72
+                : symbolConfig.label === 'ETH'
+                  ? 2840.25
+                  : symbolConfig.label === 'NDX'
+                    ? 21998.54
+                    : symbolConfig.label === 'SPX'
+                      ? 5988.41
+                      : 99.12,
+        percentChange:
+          symbolConfig.label === 'XAU'
+            ? 0.88
+            : symbolConfig.label === 'XAG'
+              ? 1.04
+              : symbolConfig.label === 'WTI'
+                ? -0.52
+                : symbolConfig.label === 'ETH'
+                  ? 2.36
+                  : symbolConfig.label === 'NDX'
+                    ? 1.28
+                    : symbolConfig.label === 'SPX'
+                      ? 0.91
+                      : -0.14,
+        exchange: '',
+        sourceTimestamp: '2026-04-27 18:20:00',
+      };
+    },
+    newsFetcher: async (category) => ({
+      category,
+      title: category === 'finance' ? '财经' : 'AI',
+      error: '',
+      items: [
+        {
+          title:
+            category === 'finance'
+              ? 'A股成交额回升'
+              : 'OpenAI 发布新一代图像模型',
+          publishedAt: new Date('2026-04-27T17:55:00+08:00'),
+          summary:
+            category === 'finance'
+              ? 'A股成交额回升。'
+              : 'OpenAI 发布新一代图像模型。',
+        },
+      ],
+    }),
+    messagePusher: async (_config, messages) => {
+      pushedMessages.push(...messages);
+      return {
+        dryRun: false,
+        messages,
+      };
+    },
+  });
+
+  const shQuote = result.quotes.find((quote) => quote.label === 'SH');
+  assert.equal(shQuote.error, '上证行情接口超时');
+  assert.match(result.message, /黄金（XAU\/USD）：3,288\.66（\+0\.88%）/);
+  assert.match(result.message, /上证（SH）：数据暂缺/);
+  assert.equal(pushedMessages.length > 0, true);
 });

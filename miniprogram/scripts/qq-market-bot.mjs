@@ -60,7 +60,7 @@ const DEFAULT_AI_NEWS_LLM_TIMEOUT_MS = 45000;
 const DEFAULT_AI_NEWS_LLM_PRIMARY_PROVIDER = 'deepseek';
 const DEFAULT_AI_NEWS_LLM_FALLBACK_PROVIDER = 'deepseek';
 const DEFAULT_AI_NEWS_GEMINI_MODEL = 'gemini-2.5-flash';
-const DEFAULT_AI_NEWS_DEEPSEEK_MODEL = 'deepseek-chat';
+const DEFAULT_AI_NEWS_DEEPSEEK_MODEL = 'deepseek-v4-pro';
 const DEFAULT_TECH_AI_DOMESTIC_NEWS_LIMIT = 3;
 const MESSAGE_SECTION_SEPARATOR = '\n----------------\n';
 const NEWS_DUPLICATE_SIMILARITY_THRESHOLD = 0.88;
@@ -3610,6 +3610,32 @@ function parseJsonTextResponse(rawText, providerLabel) {
   }
 }
 
+function extractStructuredLlmMessageText(message) {
+  const content = message?.content;
+
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === 'string') {
+          return part;
+        }
+
+        return part?.text || '';
+      })
+      .join('');
+  }
+
+  if (content == null) {
+    return '';
+  }
+
+  return String(content);
+}
+
 function normalizeNewsLlmSelectedItem(
   rawItem,
   candidateEntry,
@@ -4062,40 +4088,66 @@ async function fetchLlmJsonWithGemini(prompt, config, responseJsonSchema) {
 }
 
 async function fetchLlmJsonWithDeepSeek(prompt, config) {
-  const response = await fetchJson(DEEPSEEK_CHAT_COMPLETIONS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.deepseekApiKey}`,
-    },
-    body: JSON.stringify({
-      model: config.aiNewsDeepseekModel,
-      temperature: 0.2,
-      max_tokens: 1400,
-      response_format: {
-        type: 'json_object',
-      },
-      messages: [
-        {
-          role: 'system',
-          content:
-            '你是中文 AI 新闻编辑，只能基于候选列表挑选新闻，必须返回 JSON。',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    }),
-    signal: AbortSignal.timeout(config.aiNewsLlmTimeoutMs),
-  });
-  const text = response?.choices?.[0]?.message?.content || '';
+  let lastStructuredError = null;
 
-  if (!text.trim()) {
-    throw new Error('DeepSeek 未返回可用的结构化结果');
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const response = await fetchJson(DEEPSEEK_CHAT_COMPLETIONS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.deepseekApiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.aiNewsDeepseekModel,
+        temperature: 0.2,
+        max_tokens: 1400,
+        thinking: {
+          type: 'disabled',
+        },
+        response_format: {
+          type: 'json_object',
+        },
+        messages: [
+          {
+            role: 'system',
+            content:
+              '你是中文 AI 新闻编辑，只能基于候选列表挑选新闻，必须返回 JSON。',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(config.aiNewsLlmTimeoutMs),
+    });
+    const text = extractStructuredLlmMessageText(response?.choices?.[0]?.message);
+
+    if (!text.trim()) {
+      lastStructuredError = new Error('DeepSeek 未返回可用的结构化结果');
+
+      if (attempt < 2) {
+        continue;
+      }
+
+      throw lastStructuredError;
+    }
+
+    try {
+      return parseJsonTextResponse(text, 'DeepSeek');
+    } catch (error) {
+      lastStructuredError =
+        error instanceof Error ? error : new Error(String(error));
+
+      if (attempt < 2) {
+        continue;
+      }
+
+      throw lastStructuredError;
+    }
   }
 
-  return parseJsonTextResponse(text, 'DeepSeek');
+  throw lastStructuredError || new Error('DeepSeek 未返回可用的结构化结果');
 }
 
 function resolveNewsLlmProviders(config) {
@@ -5348,7 +5400,7 @@ export async function fetchQuote(symbolConfig, config) {
 }
 
 export async function collectQuotes(config, quoteFetcher = fetchQuote) {
-  return Promise.all(
+  const results = await Promise.allSettled(
     config.symbols.map(async (symbolConfig) => {
       const quote = await quoteFetcher(symbolConfig, config);
       return {
@@ -5359,6 +5411,35 @@ export async function collectQuotes(config, quoteFetcher = fetchQuote) {
       };
     }),
   );
+
+  return results.map((result, index) => {
+    const symbolConfig = config.symbols[index];
+
+    if (result.status === 'fulfilled') {
+      return result.value;
+    }
+
+    const errorMessage =
+      result.reason instanceof Error
+        ? result.reason.message
+        : `抓取 ${symbolConfig.label} 行情失败`;
+
+    console.warn(
+      `[qq-market-bot] 行情抓取失败，已保留其余品种并继续发送：${symbolConfig.label} - ${errorMessage}`,
+    );
+
+    return {
+      symbol: symbolConfig.symbol,
+      price: null,
+      percentChange: null,
+      exchange: '',
+      sourceTimestamp: '',
+      label: symbolConfig.label,
+      displayName: symbolConfig.displayName || symbolConfig.label,
+      decimals: symbolConfig.decimals,
+      error: errorMessage,
+    };
+  });
 }
 
 export async function collectNews(config, newsFetcher = fetchNewsSection) {
@@ -5404,6 +5485,11 @@ function formatPriceSection(quotes, generatedAt, timeZone) {
   ];
 
   for (const quote of quotes) {
+    if (quote.error && !Number.isFinite(quote.price)) {
+      lines.push(`${quote.displayName || quote.label}：数据暂缺`);
+      continue;
+    }
+
     lines.push(
       `${quote.displayName || quote.label}：${formatPrice(
         quote.price,

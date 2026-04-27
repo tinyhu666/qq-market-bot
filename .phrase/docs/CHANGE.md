@@ -186,7 +186,7 @@
 - change183 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将新闻去重口径调整为只在单轮消息内生效，明确不同时间段允许重复热点 | 关联:task034
 - change184 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:将去重优先级改为单轮消息内去重，并记录跨时段重复是可接受取舍 | 关联:task034
 - change185 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task034，记录只保留单条消息内去重的需求与验证方式 | 关联:task034
-- change186 日期:2026-04-02 | 文件:/home/ubuntu/stock-bot/scripts/qq-market-bot.env | 操作:Modify | 影响:OneBot 接收目标 | 说明:清空 `ONEBOT_EXTRA_TARGETS`，仅保留群 `91637082` 作为唯一播报目标，暂时移除两个私聊 QQ 以降低风控风险 | 关联:task035
+- change186 日期:2026-04-02 | 文件:/home/ubuntu/stock-bot/scripts/qq-market-bot.env | 操作:Modify | 影响:OneBot 接收目标 | 说明:清空 `ONEBOT_EXTRA_TARGETS`，仅保留群 `<group-id>` 作为唯一播报目标，暂时移除两个私聊 QQ 以降低风控风险 | 关联:task035
 - change187 日期:2026-04-02 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task035，记录 OneBot 推送暂时只保留群聊目标的运营调整 | 关联:task035
 - change188 日期:2026-04-02 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 新闻默认模型配置 | 说明:将 AI 新闻 LLM 默认 provider 与 fallback 都切为 DeepSeek，并同步更新脚本帮助文案中的默认口径 | 关联:task036
 - change189 日期:2026-04-02 | 文件:miniprogram/scripts/qq-market-bot.env.example | 操作:Modify | 影响:示例配置 | 说明:将示例环境变量改为 DeepSeek-only，并把 Gemini 配置调整为手动切换时才启用的注释项 | 关联:task036
@@ -240,4 +240,25 @@
 - change237 日期:2026-04-22 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task043，记录 AI 热榜在恢复到 Top 10 后继续收紧口吻质量的修复任务 | 关联:task043
 - change238 日期:2026-04-22 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 单条摘要链路 | 说明:将 heuristic 优先级下沉到单条摘要函数，并补充项目代号保留原文与 awkward 中文改写优先条件，继续压缩媒体腔结果 | 关联:task043
 - change239 日期:2026-04-22 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充单条摘要链路对 `Project Prometheus` 与 `Snowflake` awkward 中文总结的回归断言，确保 heuristic 兜底在真实调用路径生效 | 关联:task043
+- change240 日期:2026-04-27 | 文件:miniprogram/scripts/qq-market-bot-run.sh | 操作:Modify | 影响:定时推送入口与 OneBot 预检 | 说明:为包装脚本补充系统 `node` 回退、HTTP 预检鉴权透传、`online=false` 识别，并回写执行位要求，避免 cron 在发送前被入口层拦截 | 关联:task044
+- change241 日期:2026-04-27 | 文件:miniprogram/README.md | 操作:Modify | 影响:服务器部署说明 | 说明:补充包装脚本的 Node 解析顺序、OneBot token 透传与离线预检口径，方便运维定位“脚本能 dry-run 但定时不推送”的入口问题 | 关联:task044
+- change242 日期:2026-04-27 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将服务器预检反馈更新为覆盖未授权与 `online=false`，并补充包装脚本回退系统 `node` 与复用 OneBot 鉴权头的验收要求 | 关联:task044
+- change243 日期:2026-04-27 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充包装脚本在 `NODE_BIN` 缺失和 OneBot 预检鉴权上的运维优先级与误判风险说明 | 关联:task044
+- change244 日期:2026-04-27 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task044，记录 2026-04-27 当天未正常推送后的入口层排障与加固动作 | 关联:task044
+- change245 日期:2026-04-27 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 新闻默认模型配置 | 说明:将仓库内置的 DeepSeek 默认模型从 `deepseek-chat` 更新为 `deepseek-v4-pro`，以适配 DeepSeek V4 API 新口径 | 关联:task045
+- change246 日期:2026-04-27 | 文件:miniprogram/scripts/qq-market-bot.env.example | 操作:Modify | 影响:示例配置 | 说明:将示例环境中的 `DEEPSEEK_MODEL` 更新为 `deepseek-v4-pro`，保持新部署默认口径一致 | 关联:task045
+- change247 日期:2026-04-27 | 文件:miniprogram/scripts/qq-market-bot.env | 操作:Modify | 影响:本地运行配置 | 说明:将当前运行配置切回 DeepSeek 主 provider，并把 `DEEPSEEK_MODEL` 更新为 `deepseek-v4-pro` | 关联:task045
+- change248 日期:2026-04-27 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:同步更新默认 DeepSeek 模型为 `deepseek-v4-pro`，避免文档继续引用即将退役的 `deepseek-chat` | 关联:task045
+- change249 日期:2026-04-27 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充默认 DeepSeek 模型应为 `deepseek-v4-pro` 的配置解析断言，锁住后续回归 | 关联:task045
+- change250 日期:2026-04-27 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充默认 `DEEPSEEK_MODEL` 应切到 `deepseek-v4-pro` 的规格要求 | 关联:task045
+- change251 日期:2026-04-27 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 DeepSeek V4 Pro 切换优先级和 `deepseek-chat` 退役风险说明 | 关联:task045
+- change252 日期:2026-04-27 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task045，记录 DeepSeek 默认模型切到 V4 Pro 的配置与文档更新 | 关联:task045
+- change253 日期:2026-04-27 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:DeepSeek 结构化摘要链路 | 说明:为 DeepSeek V4 的 JSON 请求显式关闭 `thinking`，并对空 `content` 与不可解析 JSON 增加一次最小重试，降低摘要链路抖动 | 关联:task046
+- change254 日期:2026-04-27 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:新增 DeepSeek V4 结构化请求关闭 thinking 且在首次空 `content` 时自动重试的回归测试 | 关联:task046
+- change255 日期:2026-04-27 | 文件:.phrase/docs/ISSUES.md | 操作:Modify | 影响:全局问题索引 | 说明:新增 issue002，记录 DeepSeek V4 默认 thinking 与 JSON 输出链路的兼容性问题 | 关联:task046
+- change256 日期:2026-04-27 | 文件:.phrase/phases/phase-market-bot-20260330/issue_market_bot_20260330.md | 操作:Modify | 影响:阶段问题记录 | 说明:补充 issue002 的现象、复现、根因与修复，记录 DeepSeek V4 结构化摘要兼容处理 | 关联:task046
+- change257 日期:2026-04-27 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充 DeepSeek V4 JSON 请求需关闭 thinking 且对空结构化响应自动重试的规格要求 | 关联:task046
+- change258 日期:2026-04-27 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 DeepSeek V4 thinking 默认启用与 JSON 空响应风险，以及对应的兼容优先级 | 关联:task046
+- change259 日期:2026-04-27 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task046，记录 DeepSeek V4 结构化摘要兼容修复与验证结果 | 关联:task046
+- change260 日期:2026-04-27 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充 DeepSeek V4 Pro 结构化摘要会显式关闭 thinking 并在空 `content` 时自动重试的当前运行口径 | 关联:task046
 - change168 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充联想/高德的国内区域识别断言，并将促销文案样例纳入 AI 候选过滤测试 | 关联:task031

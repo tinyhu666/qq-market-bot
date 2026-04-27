@@ -155,7 +155,7 @@ typings/
 - 国内 AI 候选默认优先使用 `量子位`；`AIBase` 会作为低优先级回填源参与补量，但同一轮最多保留 `1` 条，并且会对同事件改写稿做额外去重
 - 财经新闻优先使用 `第一财经` 资讯页与 `36氪快讯` 的标题型源；如果结果不足，再回退到东方财富妙享 `skill` 或公开 `7*24` 快讯接口
 
-AI 新闻会先在这些源之间做一层标题过滤、源权重排序、热度评分和近似去重，再把候选条目交给大模型做最终筛选和一句话总结。当前默认只使用 `DeepSeek`；如果未配置或调用失败，则继续回退到本地规则筛选，保证播报不中断。仓库里仍保留 `Gemini` 兼容能力，但只有在你显式填写 `GEMINI_API_KEY` 并把 provider 切回 `gemini` 时才会启用。如果模型生成了明显营销腔、半句、英文残留、口语化、主体不明确、招聘/校招或 clickbait 风格的总结，脚本会自动回退到更稳妥的原标题，并在必要时用其他候选补齐条数；如果总结漏掉了标题里的关键仓库名、产品名、模型名或版本号，也会直接回退标题，避免把事件写成模糊概述。在候选量足够时，`AI Top 10` 会尽量固定为 `7` 条国际 AI 新闻 + `3` 条国内 AI 新闻，最终顺序优先尊重大模型返回的热榜次序，不会在收尾阶段再被本地热度分二次洗牌。
+AI 新闻会先在这些源之间做一层标题过滤、源权重排序、热度评分和近似去重，再把候选条目交给大模型做最终筛选和一句话总结。当前默认只使用 `DeepSeek`，并已将默认 `DEEPSEEK_MODEL` 切到 `deepseek-v4-pro`；如果未配置或调用失败，则继续回退到本地规则筛选，保证播报不中断。由于 `deepseek-v4-pro` 默认启用 thinking，而这里需要严格结构化 JSON，总结请求会显式使用非思考模式，并在模型偶发返回空 `content` 时自动重试一次，尽量减少 AI 区因结构化输出抖动而回退。仓库里仍保留 `Gemini` 兼容能力，但只有在你显式填写 `GEMINI_API_KEY` 并把 provider 切回 `gemini` 时才会启用。如果模型生成了明显营销腔、半句、英文残留、口语化、主体不明确、招聘/校招或 clickbait 风格的总结，脚本会自动回退到更稳妥的原标题，并在必要时用其他候选补齐条数；如果总结漏掉了标题里的关键仓库名、产品名、模型名或版本号，也会直接回退标题，避免把事件写成模糊概述。在候选量足够时，`AI Top 10` 会尽量固定为 `7` 条国际 AI 新闻 + `3` 条国内 AI 新闻，最终顺序优先尊重大模型返回的热榜次序，不会在收尾阶段再被本地热度分二次洗牌。
 
 为了进一步提升 AI 区质量，候选现在不只看“是否提到 AI”，还会优先要求有明确主体和动作信号，例如模型/产品发布、开源、融资、收购、合作、财报、监管或基础设施更新；像专访、解读、教程、体验、趋势评论、活动预告和泛观点内容会被提前降权或过滤。
 
@@ -197,7 +197,7 @@ cp scripts/qq-market-bot.env.example scripts/qq-market-bot.env
   - `MARKET_AI_LLM_PROVIDER`，可选；默认 `deepseek`
   - `MARKET_AI_LLM_FALLBACK_PROVIDER`，可选；默认 `deepseek`
   - `MARKET_AI_LLM_TIMEOUT_MS`，可选；默认 `45000`
-  - `DEEPSEEK_MODEL`，可选；默认 `deepseek-chat`
+  - `DEEPSEEK_MODEL`，可选；默认 `deepseek-v4-pro`
   - `DEEPSEEK_API_KEY`，可选；配置后作为 AI Top 10 的默认大模型
   - `GEMINI_MODEL`，可选；默认 `gemini-2.5-flash`
   - `GEMINI_API_KEY`，可选；仅在你手动把 provider 切回 `gemini` 时启用
@@ -293,7 +293,7 @@ crontab ./scripts/qq-market-bot.cron.example
 
 如果你要把这套定时任务放到 Linux 服务器上，推荐直接复用 [qq-market-bot-run.sh](/Users/hurui/Downloads/stock/miniprogram/scripts/qq-market-bot-run.sh) 这个包装脚本：
 
-1. 安装 Node `20+`，或者直接把官方二进制放到 `/opt/node-v24.14.1-linux-x64/bin/node`
+1. 安装 Node `20+`；包装脚本会优先使用显式 `NODE_BIN`，否则先尝试 `/opt/node-v24.14.1-linux-x64/bin/node`，再回退到 `PATH` 里的 `node`
 2. 把下面这些文件同步到服务器某个目录，例如 `/home/ubuntu/stock-bot/`
    - `scripts/qq-market-bot.mjs`
    - `scripts/qq-market-bot.env`
@@ -318,8 +318,9 @@ crontab ./scripts/qq-market-bot.cron.example
 
 说明：
 
-- `qq-market-bot-run.sh` 会先加载 `.env`，再调用 Node 版脚本。
-- 如果当前走的是 `OneBot` 且 `ONEBOT_HTTP_URL` 不可达，包装脚本会先写一条明确日志后退出，不会让 cron 每次都打出一大串 Node 异常。
+- `qq-market-bot-run.sh` 会先加载 `.env`，再解析可用的 Node 运行时并调用 Node 版脚本。
+- 如果当前走的是 `OneBot` 且 `ONEBOT_HTTP_URL` 不可达、返回异常状态，或 `get_status` 显示 `online=false`，包装脚本会先写一条明确日志后退出，不会让 cron 每次都打出一大串 Node 异常。
+- 如果你的 OneBot HTTP 接口开启了 `ONEBOT_ACCESS_TOKEN`，包装脚本的预检会复用同一个 Bearer token，避免把可用服务误判成未就绪。
 - 如果你用的是 `ONEBOT_WS_URL`，包装脚本会先做一次 TCP 可达性检查，再启动 Node 主脚本。
 - 如果你的 OneBot 不在同一台服务器上，记得把 `ONEBOT_HTTP_URL` 或 `ONEBOT_WS_URL` 改成公网或内网可达地址，而不是默认的本机回环地址。
 
