@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  TECH_AI_NEWS_SOURCES,
   buildHeuristicTechAiSummaryFromTitle,
   buildReportMessages,
   classifyTechAiNewsRegion,
@@ -76,6 +77,21 @@ test('readConfig defaults ai llm provider to deepseek only', () => {
   assert.equal(config.aiNewsLlmProvider, 'deepseek');
   assert.equal(config.aiNewsLlmFallbackProvider, 'deepseek');
   assert.equal(config.aiNewsDeepseekModel, 'deepseek-v4-pro');
+});
+
+test('readConfig parses overseas ai news limit separately', () => {
+  const config = readConfig({
+    TWELVE_DATA_API_KEY: 'demo-key',
+    QQ_BOT_MODE: 'onebot',
+    ONEBOT_HTTP_URL: 'http://127.0.0.1:3000',
+    ONEBOT_MESSAGE_TYPE: 'group',
+    ONEBOT_TARGET_ID: '123456',
+    MARKET_TECH_AI_NEWS_LIMIT: '10',
+    MARKET_OVERSEAS_AI_NEWS_LIMIT: '5',
+  });
+
+  assert.equal(config.techAiNewsLimit, 10);
+  assert.equal(config.overseasAiNewsLimit, 5);
 });
 
 test('readConfig parses onebot extra targets for group and private delivery', () => {
@@ -442,6 +458,63 @@ test('selectTechAiNewsItems filters noisy titles, trims multi-topic headlines, a
         sourcePriority: 6,
         publishedAt: new Date('2026-03-30T09:30:00+08:00'),
       },
+      {
+        title:
+          'Celebrating 20 years of Google Translate: Fun facts, tips and new features to try',
+        summary:
+          'Celebrating Google Translate with fun facts, tips and new features to try.',
+        source: 'Google AI',
+        sourcePriority: 9,
+        region: 'international',
+        publishedAt: new Date('2026-03-30T09:31:00+08:00'),
+      },
+      {
+        title:
+          '24/7 Simulation Loops: How Agentic AI Keeps Subsurface Engineering Moving',
+        summary:
+          'Agentic AI keeps subsurface engineering moving in simulation loops.',
+        source: 'NVIDIA Blog',
+        sourcePriority: 8,
+        region: 'international',
+        publishedAt: new Date('2026-03-30T09:32:00+08:00'),
+      },
+      {
+        title:
+          'Migrating a text agent to a voice assistant with Amazon Nova 2 Sonic',
+        summary:
+          'Migrating a text agent to a voice assistant with Amazon Nova 2 Sonic.',
+        source: 'AWS Machine Learning Blog',
+        sourcePriority: 7,
+        region: 'international',
+        publishedAt: new Date('2026-03-30T09:32:30+08:00'),
+      },
+      {
+        title:
+          'Here is what an LLM that knows nothing after 1930 thinks our world looks like in 2026',
+        summary:
+          'An LLM that knows nothing after 1930 thinks our world looks like in 2026.',
+        source: 'The Decoder',
+        sourcePriority: 6,
+        region: 'international',
+        publishedAt: new Date('2026-03-30T09:33:00+08:00'),
+      },
+      {
+        title:
+          '小米双模型正式开源！MiMo-V2.5-Pro无中断肝出“macOS”：54个应用全开、浏览器真能冲浪',
+        summary: '小米双模型正式开源，MiMo-V2.5-Pro 无中断肝出 macOS。',
+        source: '量子位',
+        sourcePriority: 7,
+        region: 'domestic',
+        publishedAt: new Date('2026-03-30T09:34:00+08:00'),
+      },
+      {
+        title: 'AI真能搞钱了！这家公司把大模型玩成闭环赚钱机器',
+        summary: 'AI真能搞钱了，这家公司把大模型玩成闭环赚钱机器。',
+        source: '量子位',
+        sourcePriority: 7,
+        region: 'domestic',
+        publishedAt: new Date('2026-03-30T09:35:00+08:00'),
+      },
     ],
     {
       techAiNewsLimit: 3,
@@ -544,6 +617,36 @@ test('dedupeNewsSectionsForMessage removes duplicate topics within and across se
   assert.match(sections[1].items[0].summary, /A股成交额突破1万亿元/u);
 });
 
+test('dedupeNewsSectionsForMessage keeps overseas ai independent from the main ai list', () => {
+  const sections = dedupeNewsSectionsForMessage([
+    {
+      category: 'tech-ai',
+      title: 'AI',
+      error: '',
+      items: [
+        {
+          title: 'OpenAI launches enterprise agent workspace',
+          summary: 'OpenAI 推出企业级智能体工作台。',
+        },
+      ],
+    },
+    {
+      category: 'overseas-ai',
+      title: '海外AI',
+      error: '',
+      items: [
+        {
+          title: 'OpenAI enterprise agent workspace launches',
+          summary: 'OpenAI 推出企业级智能体工作台。',
+        },
+      ],
+    },
+  ]);
+
+  assert.equal(sections[0].items.length, 1);
+  assert.equal(sections[1].items.length, 1);
+});
+
 test('classifyTechAiNewsRegion separates international and domestic ai news', () => {
   assert.equal(
     classifyTechAiNewsRegion({
@@ -637,6 +740,48 @@ test('parseTechAiSourceItems supports Atom feeds for international AI sources', 
   assert.equal(items[0].sourcePriority, 8);
   assert.equal(items[0].region, 'international');
   assert.equal(items[0].publishedAt?.toISOString(), '2026-03-25T16:35:43.000Z');
+});
+
+test('default AI sources include additional high-quality international feeds', () => {
+  const sourceNames = TECH_AI_NEWS_SOURCES.map((source) => source.name);
+
+  assert.ok(sourceNames.includes('Google DeepMind'));
+  assert.ok(sourceNames.includes('Microsoft Research'));
+  assert.ok(sourceNames.includes('AWS Machine Learning Blog'));
+  assert.ok(sourceNames.includes('Hugging Face Blog'));
+  assert.ok(sourceNames.includes('MIT Technology Review AI'));
+});
+
+test('parseTechAiSourceItems decodes RSS title entities from international feeds', () => {
+  const items = parseTechAiSourceItems(
+    `
+      <rss>
+        <channel>
+          <item>
+            <title>How OpenAI&apos;s Privacy Filter expands enterprise AI agents</title>
+            <description>OpenAI&apos;s Privacy Filter expands enterprise AI agents.</description>
+            <pubDate>Tue, 28 Apr 2026 15:58:57 GMT</pubDate>
+          </item>
+        </channel>
+      </rss>
+    `,
+    {
+      name: 'Hugging Face Blog',
+      format: 'rss',
+      sourcePriority: 7,
+      region: 'international',
+    },
+  );
+
+  assert.equal(items.length, 1);
+  assert.equal(
+    items[0].title,
+    "How OpenAI's Privacy Filter expands enterprise AI agents",
+  );
+  assert.equal(
+    items[0].summary,
+    "OpenAI's Privacy Filter expands enterprise AI agents.",
+  );
 });
 
 test('selectTechAiNewsItems prefers higher-priority sources when relevance is similar', () => {
@@ -832,6 +977,73 @@ test('selectTechAiNewsItems dedupes rewritten low-priority stories about the sam
   );
 });
 
+test('selectTechAiNewsItems dedupes same model launch across international sources', () => {
+  const items = selectTechAiNewsItems(
+    [
+      {
+        title:
+          'NVIDIA Launches Nemotron 3 Nano Omni Model, Unifying Vision, Audio and Language',
+        summary:
+          'NVIDIA launches Nemotron 3 Nano Omni model for multimodal AI agents.',
+        source: 'NVIDIA Blog',
+        sourcePriority: 8,
+        region: 'international',
+        publishedAt: new Date('2026-04-29T08:00:00+08:00'),
+      },
+      {
+        title:
+          'NVIDIA Nemotron 3 Nano Omni model now available on Amazon SageMaker JumpStart',
+        summary:
+          'NVIDIA Nemotron 3 Nano Omni model is now available on Amazon SageMaker JumpStart.',
+        source: 'AWS Machine Learning Blog',
+        sourcePriority: 7,
+        region: 'international',
+        publishedAt: new Date('2026-04-29T08:05:00+08:00'),
+      },
+      {
+        title:
+          'Introducing NVIDIA Nemotron 3 Nano Omni: Long-Context Multimodal Intelligence for Documents',
+        summary:
+          'Introducing NVIDIA Nemotron 3 Nano Omni for long-context multimodal intelligence.',
+        source: 'Hugging Face Blog',
+        sourcePriority: 7,
+        region: 'international',
+        publishedAt: new Date('2026-04-29T08:10:00+08:00'),
+      },
+      {
+        title:
+          'NVIDIA Nemotron 3 Nano Omni Powers Multimodal Agent Reasoning in a Single Efficient Open Model',
+        summary:
+          'NVIDIA Nemotron 3 Nano Omni powers multimodal agent reasoning.',
+        source: 'NVIDIA Technical Blog',
+        sourcePriority: 8,
+        region: 'international',
+        publishedAt: new Date('2026-04-29T08:12:00+08:00'),
+      },
+      {
+        title: 'Mistral AI takes on enterprise AI orchestration with Workflows',
+        summary:
+          'Mistral AI launches Workflows for enterprise AI orchestration.',
+        source: 'The Decoder',
+        sourcePriority: 6,
+        region: 'international',
+        publishedAt: new Date('2026-04-29T08:15:00+08:00'),
+      },
+    ],
+    {
+      techAiNewsLimit: 5,
+      newsSummaryMaxLength: 48,
+    },
+    new Date('2026-04-29T09:00:00+08:00'),
+  );
+
+  assert.equal(
+    items.filter((item) => /Nemotron 3 Nano Omni/u.test(item.title)).length,
+    1,
+  );
+  assert.ok(items.some((item) => /Mistral AI/u.test(item.title)));
+});
+
 test('selectTechAiNewsItems filters trend-packaged agent teamwork headlines', () => {
   const items = selectTechAiNewsItems(
     [
@@ -985,8 +1197,17 @@ test('runMarketPush allows repeated hot news across different push times', async
       exchange: '',
       sourceTimestamp: '2026-04-01 13:25:00',
     }),
-    newsFetcher: async (category) =>
-      category === 'tech-ai'
+    newsFetcher: async (category) => {
+      if (category === 'overseas-ai') {
+        return {
+          category,
+          title: '海外AI',
+          error: '',
+          items: [],
+        };
+      }
+
+      return category === 'tech-ai'
         ? {
             category,
             title: 'AI',
@@ -1017,7 +1238,8 @@ test('runMarketPush allows repeated hot news across different push times', async
                 summary: 'A股成交额突破1万亿元',
               },
             ],
-          },
+          };
+    },
     newsStateStore: {
       read: async () => storedState,
       write: async (nextState) => {
@@ -1063,8 +1285,17 @@ test('runMarketPush removes duplicate stories between ai and finance sections', 
       exchange: '',
       sourceTimestamp: '2026-04-01 18:25:00',
     }),
-    newsFetcher: async (category) =>
-      category === 'tech-ai'
+    newsFetcher: async (category) => {
+      if (category === 'overseas-ai') {
+        return {
+          category,
+          title: '海外AI',
+          error: '',
+          items: [],
+        };
+      }
+
+      return category === 'tech-ai'
         ? {
             category,
             title: 'AI',
@@ -1099,7 +1330,8 @@ test('runMarketPush removes duplicate stories between ai and finance sections', 
                 publishedAt: new Date('2026-04-01T18:05:00+08:00'),
               },
             ],
-          },
+          };
+    },
     newsStateStore: {
       read: async () => ({
         version: 1,
@@ -2465,7 +2697,12 @@ test('runMarketPush supports dry-run mode', async () => {
     }),
     newsFetcher: async (category) => ({
       category,
-      title: category === 'finance' ? '财经' : 'AI',
+      title:
+        category === 'finance'
+          ? '财经'
+          : category === 'overseas-ai'
+            ? '海外AI'
+            : 'AI',
       error: '',
       items:
         category === 'finance'
@@ -2475,7 +2712,9 @@ test('runMarketPush supports dry-run mode', async () => {
                 title: `${category} 新闻 1`,
                 publishedAt: new Date('2026-03-30T09:00:00+08:00'),
                 summary:
-                  'OpenAI 扩展 Responses API，为自主智能体提供基础设施。',
+                  category === 'overseas-ai'
+                    ? 'Anthropic 发布海外 Claude 企业智能体更新。'
+                    : 'OpenAI 扩展 Responses API，为自主智能体提供基础设施。',
               },
             ],
     }),
@@ -2490,6 +2729,7 @@ test('runMarketPush supports dry-run mode', async () => {
   assert.match(result.message, /上证（SH）：3,230\.18（\+0\.24%）/);
   assert.match(result.message, /【AI Top 1】/);
   assert.match(result.message, /【财经 Top 0】/);
+  assert.match(result.message, /【海外AI Top 1】/);
   assert.match(result.message, /暂无符合条件的新闻。/u);
 });
 
@@ -2545,19 +2785,28 @@ test('runMarketPush tolerates single quote fetch failure and still pushes report
     },
     newsFetcher: async (category) => ({
       category,
-      title: category === 'finance' ? '财经' : 'AI',
+      title:
+        category === 'finance'
+          ? '财经'
+          : category === 'overseas-ai'
+            ? '海外AI'
+            : 'AI',
       error: '',
       items: [
         {
           title:
             category === 'finance'
               ? 'A股成交额回升'
-              : 'OpenAI 发布新一代图像模型',
+              : category === 'overseas-ai'
+                ? 'Anthropic 发布海外 Claude 企业智能体更新'
+                : 'OpenAI 发布新一代图像模型',
           publishedAt: new Date('2026-04-27T17:55:00+08:00'),
           summary:
             category === 'finance'
               ? 'A股成交额回升。'
-              : 'OpenAI 发布新一代图像模型。',
+              : category === 'overseas-ai'
+                ? 'Anthropic 发布海外 Claude 企业智能体更新。'
+                : 'OpenAI 发布新一代图像模型。',
         },
       ],
     }),

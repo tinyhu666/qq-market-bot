@@ -25,6 +25,9 @@ const THIRTY_SIX_KR_NEWSFLASH_FEED_URL = 'https://36kr.com/feed-newsflash';
 const OPENAI_NEWS_RSS_URL = 'https://openai.com/news/rss.xml';
 const GOOGLE_AI_RSS_URL =
   'https://blog.google/innovation-and-ai/technology/ai/rss/';
+const GOOGLE_DEEPMIND_RSS_URL = 'https://deepmind.google/blog/rss.xml';
+const MICROSOFT_RESEARCH_RSS_URL =
+  'https://www.microsoft.com/en-us/research/feed/';
 const TECHCRUNCH_AI_RSS_URL =
   'https://techcrunch.com/tag/artificial-intelligence/feed/';
 const VENTUREBEAT_AI_RSS_URL = 'https://venturebeat.com/category/ai/feed/';
@@ -32,6 +35,11 @@ const NVIDIA_BLOG_GENAI_RSS_URL =
   'https://blogs.nvidia.com/blog/category/generative-ai/feed/';
 const NVIDIA_DEVELOPER_GENAI_ATOM_URL =
   'https://developer.nvidia.com/blog/category/generative-ai/feed/';
+const AWS_MACHINE_LEARNING_RSS_URL =
+  'https://aws.amazon.com/blogs/machine-learning/feed/';
+const HUGGINGFACE_BLOG_RSS_URL = 'https://huggingface.co/blog/feed.xml';
+const MIT_TECH_REVIEW_AI_RSS_URL =
+  'https://www.technologyreview.com/topic/artificial-intelligence/feed/';
 const THE_DECODER_FEED_URL = 'https://the-decoder.com/feed/';
 const AI_NEWS_FEED_URL = 'https://www.artificialintelligence-news.com/feed/';
 const QBITAI_RSS_URL = 'https://www.qbitai.com/feed';
@@ -45,6 +53,7 @@ const FINANCE_NEWS_FETCH_MULTIPLIER = 4;
 const NEWS_LOOKBACK_HOURS = 24;
 const DEFAULT_TECH_NEWS_LIMIT = 5;
 const DEFAULT_AI_NEWS_LIMIT = 5;
+const DEFAULT_OVERSEAS_AI_NEWS_LIMIT = 5;
 const DEFAULT_FINANCE_NEWS_LIMIT = 10;
 const DEFAULT_MESSAGE_MAX_LENGTH = 1600;
 const DEFAULT_NEWS_SUMMARY_MAX_LENGTH = 48;
@@ -94,12 +103,15 @@ const NEWS_CATEGORY_CONFIG = {
   'tech-ai': {
     title: 'AI',
   },
+  'overseas-ai': {
+    title: '海外AI',
+  },
   finance: {
     title: '财经',
   },
 };
 
-const TECH_AI_NEWS_SOURCES = [
+export const TECH_AI_NEWS_SOURCES = [
   {
     name: 'OpenAI News',
     url: OPENAI_NEWS_RSS_URL,
@@ -110,6 +122,13 @@ const TECH_AI_NEWS_SOURCES = [
   {
     name: 'Google AI',
     url: GOOGLE_AI_RSS_URL,
+    format: 'rss',
+    sourcePriority: 9,
+    region: 'international',
+  },
+  {
+    name: 'Google DeepMind',
+    url: GOOGLE_DEEPMIND_RSS_URL,
     format: 'rss',
     sourcePriority: 9,
     region: 'international',
@@ -129,6 +148,27 @@ const TECH_AI_NEWS_SOURCES = [
     region: 'international',
   },
   {
+    name: 'Microsoft Research',
+    url: MICROSOFT_RESEARCH_RSS_URL,
+    format: 'rss',
+    sourcePriority: 8,
+    region: 'international',
+  },
+  {
+    name: 'AWS Machine Learning Blog',
+    url: AWS_MACHINE_LEARNING_RSS_URL,
+    format: 'rss',
+    sourcePriority: 7,
+    region: 'international',
+  },
+  {
+    name: 'Hugging Face Blog',
+    url: HUGGINGFACE_BLOG_RSS_URL,
+    format: 'rss',
+    sourcePriority: 7,
+    region: 'international',
+  },
+  {
     name: 'VentureBeat AI',
     url: VENTUREBEAT_AI_RSS_URL,
     format: 'rss',
@@ -138,6 +178,13 @@ const TECH_AI_NEWS_SOURCES = [
   {
     name: 'TechCrunch AI',
     url: TECHCRUNCH_AI_RSS_URL,
+    format: 'rss',
+    sourcePriority: 5,
+    region: 'international',
+  },
+  {
+    name: 'MIT Technology Review AI',
+    url: MIT_TECH_REVIEW_AI_RSS_URL,
     format: 'rss',
     sourcePriority: 5,
     region: 'international',
@@ -214,6 +261,9 @@ const TECH_AI_NEWS_FILTER_CONFIG = {
     'nvidia',
     '微软',
     'microsoft',
+    'anthropic',
+    'claude',
+    'deepmind',
     '苹果',
     '华为',
     '特斯拉',
@@ -222,6 +272,11 @@ const TECH_AI_NEWS_FILTER_CONFIG = {
     'meta',
     '亚马逊',
     'amazon',
+    'aws',
+    'hugging face',
+    'mistral',
+    'perplexity',
+    'xai',
     '阿里',
     '腾讯',
     '字节',
@@ -709,7 +764,14 @@ function decodeHtmlEntities(text) {
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
     .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
     .replace(/&#39;/gi, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_, value) =>
+      String.fromCodePoint(Number.parseInt(value, 16)),
+    )
+    .replace(/&#(\d+);/g, (_, value) =>
+      String.fromCodePoint(Number.parseInt(value, 10)),
+    )
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>');
 }
@@ -1315,9 +1377,45 @@ function extractTechAiChineseSubject(text) {
   return normalizeNewsDuplicateText(subject);
 }
 
+function extractTechAiExplicitModelAnchors(text) {
+  const matches =
+    normalizeTechAiNewsTitle(text).match(
+      /\b(?:nvidia\s+)?(?:nemotron|claude|gemini|gpt|qwen|llama|mistral|nova)\s+[A-Za-z0-9.+-]+(?:\s+[A-Za-z0-9.+-]+){0,3}\b/giu,
+    ) || [];
+  const seen = new Set();
+  const anchors = [];
+
+  for (const rawMatch of matches) {
+    const normalized = normalizeNewsDuplicateText(
+      rawMatch
+        .replace(/^nvidia\s+/iu, '')
+        .replace(
+          /\s+(?:model|models|powers|now|available|for|with|on|in|and|long-context|multimodal|intelligence)\b.*$/iu,
+          '',
+        ),
+    );
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+
+    anchors.push(normalized);
+    seen.add(normalized);
+    if (anchors.length >= 2) {
+      break;
+    }
+  }
+
+  return anchors;
+}
+
 function extractTechAiEventAnchorTerms(text) {
   const anchors = [];
   const seen = new Set();
+
+  for (const explicitAnchor of extractTechAiExplicitModelAnchors(text)) {
+    anchors.push(explicitAnchor);
+    seen.add(explicitAnchor);
+  }
 
   for (const term of extractTechAiTitleKeyTerms(text)) {
     const normalized = normalizeNewsDuplicateText(
@@ -1371,6 +1469,13 @@ function extractTechAiEventNumericTokens(text) {
 function buildTechAiEventFingerprint(item) {
   const title = normalizeTechAiNewsTitle(item.title || item.summary || '');
   const summary = normalizeTechAiNewsTitle(item.summary || '');
+  const explicitModelAnchors = extractTechAiExplicitModelAnchors(
+    `${title} ${summary}`,
+  );
+  if (explicitModelAnchors.length > 0) {
+    return explicitModelAnchors[0];
+  }
+
   const anchorTerms = extractTechAiEventAnchorTerms(title || summary);
   const actionKey = extractTechAiEventActionKey(`${title} ${summary}`);
   const numericTokens = extractTechAiEventNumericTokens(`${title} ${summary}`);
@@ -1472,6 +1577,10 @@ function limitForNewsCategory(category, config) {
     return config.financeNewsLimit;
   }
 
+  if (category === 'overseas-ai') {
+    return config.overseasAiNewsLimit;
+  }
+
   return config.techAiNewsLimit;
 }
 
@@ -1526,6 +1635,8 @@ export function dedupeNewsSectionsForMessage(newsSections) {
 
   return newsSections.map((section) => {
     const uniqueItems = [];
+    const sectionSeenFingerprints =
+      section.category === 'overseas-ai' ? [] : seenFingerprints;
 
     for (const item of section.items || []) {
       const itemFingerprints = [
@@ -1541,14 +1652,14 @@ export function dedupeNewsSectionsForMessage(newsSections) {
 
       if (
         itemFingerprints.some((fingerprint) =>
-          shouldSkipNewsByFingerprint(fingerprint, seenFingerprints),
+          shouldSkipNewsByFingerprint(fingerprint, sectionSeenFingerprints),
         )
       ) {
         continue;
       }
 
       uniqueItems.push(item);
-      seenFingerprints.push(...itemFingerprints);
+      sectionSeenFingerprints.push(...itemFingerprints);
     }
 
     return {
@@ -2953,6 +3064,38 @@ function isExcludedTechAiNewsItem(item) {
     return true;
   }
 
+  if (/^(?:how|here is what|this is what)\b/iu.test(title)) {
+    return true;
+  }
+
+  if (
+    /^(?:migrating|building|deploying|creating|using|training|optimizing|automating|accelerating)\b/iu.test(
+      title,
+    )
+  ) {
+    return true;
+  }
+
+  if (/[:：]\s*how\b/iu.test(title)) {
+    return true;
+  }
+
+  if (
+    /(?:fun facts|tips and new features to try|what .* thinks our world looks like|keeps subsurface engineering moving)/iu.test(
+      title,
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    /(?:肝出|真能冲浪|应用全开|具身gpt-\d+时刻|全域数据利用范式|真能搞钱|赚钱机器|玩成闭环)/iu.test(
+      title,
+    )
+  ) {
+    return true;
+  }
+
   if (TECH_AI_ANALYSIS_NOISE_PATTERN.test(title)) {
     return true;
   }
@@ -3169,6 +3312,7 @@ function scoreTechAiNewsItem(item, now = new Date()) {
     ? 8
     : 0;
   const softPenalty = softKeywordHits * 5;
+  const lowPriorityBackfillPenalty = (item.sourcePriority || 0) <= 3 ? 30 : 0;
 
   return (
     coreKeywordHits * 5 +
@@ -3186,7 +3330,8 @@ function scoreTechAiNewsItem(item, now = new Date()) {
     namedEntityBoost -
     softPenalty -
     analysisPenalty -
-    softTopicPenalty
+    softTopicPenalty -
+    lowPriorityBackfillPenalty
   );
 }
 
@@ -3281,10 +3426,16 @@ export function selectTechAiNewsItems(
   const eventDedupedCandidates = selectUniqueTechAiEventEntries(
     semanticallyDedupedCandidates,
   );
-  const preferred = eventDedupedCandidates.filter((entry) => entry.score > 0);
+  const preferred = eventDedupedCandidates.filter(
+    (entry) => entry.score > 0 && (entry.item.sourcePriority || 0) > 3,
+  );
+  const lowPriorityBackfill = eventDedupedCandidates.filter(
+    (entry) => entry.score > 0 && (entry.item.sourcePriority || 0) <= 3,
+  );
   const fallback = eventDedupedCandidates.filter((entry) => entry.score === 0);
   const diverseCandidates = applyTechAiSourceDiversity([
     ...preferred,
+    ...lowPriorityBackfill,
     ...fallback,
   ]);
 
@@ -4121,7 +4272,9 @@ async function fetchLlmJsonWithDeepSeek(prompt, config) {
       }),
       signal: AbortSignal.timeout(config.aiNewsLlmTimeoutMs),
     });
-    const text = extractStructuredLlmMessageText(response?.choices?.[0]?.message);
+    const text = extractStructuredLlmMessageText(
+      response?.choices?.[0]?.message,
+    );
 
     if (!text.trim()) {
       lastStructuredError = new Error('DeepSeek 未返回可用的结构化结果');
@@ -4445,13 +4598,23 @@ export function selectFinanceNewsItems(items, config, now = new Date()) {
   return [...preferred, ...fallback].slice(0, limit).map((entry) => entry.item);
 }
 
-async function fetchTechAiNewsCategory(config) {
-  const category = 'tech-ai';
+async function fetchTechAiNewsCategory(
+  config,
+  {
+    category = 'tech-ai',
+    sources = TECH_AI_NEWS_SOURCES,
+    limit = config.techAiNewsLimit,
+  } = {},
+) {
+  const sectionConfig = {
+    ...config,
+    techAiNewsLimit: limit,
+  };
   const candidateLimit =
-    config.techAiNewsLimit * DEFAULT_DAILY_NEWS_FETCH_MULTIPLIER;
+    sectionConfig.techAiNewsLimit * DEFAULT_DAILY_NEWS_FETCH_MULTIPLIER;
   const now = new Date();
   const feedResults = await Promise.allSettled(
-    TECH_AI_NEWS_SOURCES.map(async (source) => {
+    sources.map(async (source) => {
       const payload = await fetchTextWithFallbacks(source.url);
       return parseTechAiSourceItems(payload, source, now);
     }),
@@ -4461,18 +4624,18 @@ async function fetchTechAiNewsCategory(config) {
     feedResults
       .filter((result) => result.status === 'fulfilled')
       .flatMap((result) => result.value),
-    config,
+    sectionConfig,
     now,
     candidateLimit,
   );
   const unseenCandidateResult =
-    config.dailyNewsDedupEnabled && config.currentDailyNewsState
+    sectionConfig.dailyNewsDedupEnabled && sectionConfig.currentDailyNewsState
       ? filterPreviouslySentNewsItems(
           candidateItems,
           category,
-          config.currentDailyNewsState,
-          config,
-          config.generatedAtForNews || new Date(),
+          sectionConfig.currentDailyNewsState,
+          sectionConfig,
+          sectionConfig.generatedAtForNews || new Date(),
           {
             includeAllCategories: true,
           },
@@ -4483,13 +4646,13 @@ async function fetchTechAiNewsCategory(config) {
         };
   const hotlistCandidates = selectTechAiHotlistItems(
     unseenCandidateResult.items,
-    config,
+    sectionConfig,
   );
-  let items = hotlistCandidates.slice(0, config.techAiNewsLimit);
+  let items = hotlistCandidates.slice(0, sectionConfig.techAiNewsLimit);
 
   if (
-    config.aiNewsLlmEnabled &&
-    resolveNewsLlmProviders(config).length > 0 &&
+    sectionConfig.aiNewsLlmEnabled &&
+    resolveNewsLlmProviders(sectionConfig).length > 0 &&
     hotlistCandidates.length > 0
   ) {
     try {
@@ -4502,7 +4665,7 @@ async function fetchTechAiNewsCategory(config) {
         try {
           item = await generateTechAiNewsSummaryForCandidateWithLlm(
             candidate,
-            config,
+            sectionConfig,
           );
         } catch (error) {
           console.warn(
@@ -4514,7 +4677,7 @@ async function fetchTechAiNewsCategory(config) {
 
         const heuristicSummary = buildHeuristicTechAiSummaryFromTitle(
           candidate.item,
-          config.newsSummaryMaxLength,
+          sectionConfig.newsSummaryMaxLength,
         );
         if (
           item &&
@@ -4529,7 +4692,7 @@ async function fetchTechAiNewsCategory(config) {
               region: candidate.region || candidate.item.region || '',
             },
             heuristicSummary,
-            config.newsSummaryMaxLength,
+            sectionConfig.newsSummaryMaxLength,
           );
 
           if (!isLowQualityTechAiOutputItem(heuristicItem)) {
@@ -4551,7 +4714,7 @@ async function fetchTechAiNewsCategory(config) {
                 region: candidate.region || candidate.item.region || '',
               },
               heuristicSummary,
-              config.newsSummaryMaxLength,
+              sectionConfig.newsSummaryMaxLength,
             );
 
             if (!isLowQualityTechAiOutputItem(heuristicItem)) {
@@ -4572,7 +4735,7 @@ async function fetchTechAiNewsCategory(config) {
                 buildNewsFingerprint(candidate.item, 'tech-ai'),
               region: candidate.region || candidate.item.region || '',
             },
-            config.newsSummaryMaxLength,
+            sectionConfig.newsSummaryMaxLength,
           );
 
           if (!isLowQualityTechAiOutputItem(fallbackItem)) {
@@ -4610,13 +4773,13 @@ async function fetchTechAiNewsCategory(config) {
           seenFingerprints.push(summaryFingerprint);
         }
 
-        if (llmItems.length >= config.techAiNewsLimit) {
+        if (llmItems.length >= sectionConfig.techAiNewsLimit) {
           break;
         }
       }
 
       if (llmItems.length > 0) {
-        items = llmItems.slice(0, config.techAiNewsLimit);
+        items = llmItems.slice(0, sectionConfig.techAiNewsLimit);
       }
     } catch (error) {
       console.warn(
@@ -4653,6 +4816,16 @@ async function fetchTechAiNewsCategory(config) {
         : '',
     error: '',
   };
+}
+
+async function fetchOverseasAiNewsCategory(config) {
+  return fetchTechAiNewsCategory(config, {
+    category: 'overseas-ai',
+    sources: TECH_AI_NEWS_SOURCES.filter(
+      (source) => source.region === 'international',
+    ),
+    limit: config.overseasAiNewsLimit,
+  });
 }
 
 function buildFinanceHeadlineNewsItem(item, maxLength) {
@@ -4949,6 +5122,10 @@ export async function fetchNewsSection(category, config) {
     return fetchFinanceNewsCategory(config);
   }
 
+  if (category === 'overseas-ai') {
+    return fetchOverseasAiNewsCategory(config);
+  }
+
   return fetchTechAiNewsCategory(config);
 }
 
@@ -5002,6 +5179,10 @@ export function readConfig(
       env.MARKET_TECH_AI_NEWS_LIMIT,
       toPositiveInteger(env.MARKET_TECH_NEWS_LIMIT, DEFAULT_TECH_NEWS_LIMIT) +
         toPositiveInteger(env.MARKET_AI_NEWS_LIMIT, DEFAULT_AI_NEWS_LIMIT),
+    ),
+    overseasAiNewsLimit: toPositiveInteger(
+      env.MARKET_OVERSEAS_AI_NEWS_LIMIT,
+      DEFAULT_OVERSEAS_AI_NEWS_LIMIT,
     ),
     messageMaxLength: toPositiveInteger(
       env.MARKET_MESSAGE_MAX_LENGTH,
@@ -5443,7 +5624,7 @@ export async function collectQuotes(config, quoteFetcher = fetchQuote) {
 }
 
 export async function collectNews(config, newsFetcher = fetchNewsSection) {
-  const categories = ['tech-ai', 'finance'];
+  const categories = ['tech-ai', 'finance', 'overseas-ai'];
   const sections = [];
   const seenFingerprints = [];
 
@@ -5968,6 +6149,7 @@ QQ 官方机器人模式：
   MARKET_BOT_TIMEZONE=Asia/Shanghai
   MARKET_BOT_DRY_RUN=1
   MARKET_TECH_AI_NEWS_LIMIT=10
+  MARKET_OVERSEAS_AI_NEWS_LIMIT=5
   MARKET_TECH_NEWS_LIMIT=5
   MARKET_AI_NEWS_LIMIT=5
   MARKET_FINANCE_NEWS_LIMIT=10
