@@ -286,3 +286,10 @@ change283 日期:2026-04-29 | 文件:.phrase/phases/phase-market-bot-20260330/sp
 change284 日期:2026-04-29 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充海外 AI Top 5 的优先级与消息级去重风险 | 关联:task050
 change285 日期:2026-04-29 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task050，记录海外 AI 独立 Top 5 的实现与验证闭环 | 关联:task050
 change286 日期:2026-05-05 | 文件:服务器:/home/ubuntu/stock-bot | 操作:Modify | 影响:线上运行版本 | 说明:合并 PR #1 后同步 `scripts/qq-market-bot.mjs`、测试和 README 到服务器运行目录，并通过包装脚本 dry-run 验证输出 `海外AI Top 5` | 关联:task050
+change287 日期:2026-05-05 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:海外科技新闻分类与去重 | 说明:将补充区块从 `overseas-ai` 改为 `overseas-tech`，新增海外科技源与筛选器，并与 AI/财经同轮去重 | 关联:task051
+change288 日期:2026-05-05 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充海外科技配置、源列表、筛选和跨 AI 主榜去重回归测试 | 关联:task051
+change289 日期:2026-05-05 | 文件:miniprogram/scripts/qq-market-bot.env.example | 操作:Modify | 影响:示例配置 | 说明:将独立补充区块配置改为 `MARKET_OVERSEAS_TECH_NEWS_LIMIT=5` | 关联:task051
+change290 日期:2026-05-05 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:同步海外科技 Top 5 来源、配置和与 AI Top 10 去重口径 | 关联:task051
+change291 日期:2026-05-05 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将补充新闻区块规格改为海外科技 Top 5，并明确重复 AI 事件优先保留在 AI Top 10 | 关联:task051
+change292 日期:2026-05-05 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充海外科技源覆盖范围、AI 主榜去重优先级和榜单缩水风险取舍 | 关联:task051
+change293 日期:2026-05-05 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task051，记录海外科技 Top 5 替换、去重和验证闭环 | 关联:task051
