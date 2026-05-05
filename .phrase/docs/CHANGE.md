@@ -261,4 +261,17 @@
 - change258 日期:2026-04-27 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 DeepSeek V4 thinking 默认启用与 JSON 空响应风险，以及对应的兼容优先级 | 关联:task046
 - change259 日期:2026-04-27 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task046，记录 DeepSeek V4 结构化摘要兼容修复与验证结果 | 关联:task046
 - change260 日期:2026-04-27 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:补充 DeepSeek V4 Pro 结构化摘要会显式关闭 thinking 并在空 `content` 时自动重试的当前运行口径 | 关联:task046
+- change273 日期:2026-04-29 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 新闻源与 RSS 解码 | 说明:新增 Google DeepMind、Microsoft Research、AWS Machine Learning Blog、Hugging Face Blog 与 MIT Technology Review AI 海外源，补充 HTML entity 解码，过滤周年技巧/How 教程/赚钱媒体腔样本，按模型名去重同一发布事件，并降低低优先级回填源排序权重 | 关联:task049
+- change274 日期:2026-04-29 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充默认海外源列表、RSS 标题实体解码、噪音标题过滤和跨源模型发布去重回归测试 | 关联:task049
+- change275 日期:2026-04-29 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:同步更新 AI 新闻海外源口径与 RSS 标题解码说明 | 关联:task049
+- change276 日期:2026-04-29 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充新增海外源与 HTML entity 解码的规格和验收口径 | 关联:task049
+- change277 日期:2026-04-29 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充高质量海外 RSS 补源优先级、风险和不强接不稳定官方页面的取舍 | 关联:task049
+- change278 日期:2026-04-29 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task049，记录 AI 新闻补海外源、标题解码、噪音过滤与模型事件去重验证闭环 | 关联:task049
+- change279 日期:2026-04-29 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:新闻分类与消息去重 | 说明:新增 `overseas-ai` 新闻分类、独立 Top 5 配置和国际源抓取入口，并让海外榜只做段内去重，不影响原 AI/财经区 | 关联:task050
+- change280 日期:2026-04-29 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充海外 AI 独立数量配置、海外榜不被 AI 主榜去重吞掉，以及 dry-run 输出 `海外AI Top 5` 的回归测试 | 关联:task050
+- change281 日期:2026-04-29 | 文件:miniprogram/scripts/qq-market-bot.env.example | 操作:Modify | 影响:示例配置 | 说明:新增 `MARKET_OVERSEAS_AI_NEWS_LIMIT=5`，明确海外 AI 榜单条数可独立调整 | 关联:task050
+- change282 日期:2026-04-29 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:说明 `海外AI Top 5` 是独立观察榜，复用国际源且不挤占原 AI/财经消息，并补充环境变量与示例输出 | 关联:task050
+- change283 日期:2026-04-29 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充海外 AI 独立榜单、去重边界和 dry-run 验收标准 | 关联:task050
+- change284 日期:2026-04-29 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充海外 AI Top 5 的优先级与消息级去重风险 | 关联:task050
+- change285 日期:2026-04-29 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task050，记录海外 AI 独立 Top 5 的实现与验证闭环 | 关联:task050
 - change168 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充联想/高德的国内区域识别断言，并将促销文案样例纳入 AI 候选过滤测试 | 关联:task031
