@@ -282,4 +282,5 @@
 - change291 日期:2026-05-05 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:将补充新闻区块规格改为海外科技 Top 5，并明确重复 AI 事件优先保留在 AI Top 10 | 关联:task051
 - change292 日期:2026-05-05 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充海外科技源覆盖范围、AI 主榜去重优先级和榜单缩水风险取舍 | 关联:task051
 - change293 日期:2026-05-05 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task051，记录海外科技 Top 5 替换、去重和验证闭环 | 关联:task051
+- change294 日期:2026-05-05 | 文件:服务器:/home/ubuntu/stock-bot | 操作:Modify | 影响:线上运行版本 | 说明:合并 PR #2 后同步 `scripts/qq-market-bot.mjs`、测试和 README 到服务器运行目录，并通过包装脚本 dry-run 验证输出 `海外科技 Top 5` 且跳过 AI 主榜重复事件 | 关联:task051
 - change168 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充联想/高德的国内区域识别断言，并将促销文案样例纳入 AI 候选过滤测试 | 关联:task031
