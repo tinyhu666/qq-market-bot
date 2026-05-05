@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  OVERSEAS_TECH_NEWS_SOURCES,
   TECH_AI_NEWS_SOURCES,
   buildHeuristicTechAiSummaryFromTitle,
   buildReportMessages,
@@ -20,6 +21,7 @@ import {
   readConfig,
   runMarketPush,
   selectFinanceNewsItems,
+  selectOverseasTechNewsItems,
   selectTechAiHotlistItems,
   selectTechAiNewsItems,
 } from '../scripts/qq-market-bot.mjs';
@@ -79,7 +81,7 @@ test('readConfig defaults ai llm provider to deepseek only', () => {
   assert.equal(config.aiNewsDeepseekModel, 'deepseek-v4-pro');
 });
 
-test('readConfig parses overseas ai news limit separately', () => {
+test('readConfig parses overseas tech news limit separately', () => {
   const config = readConfig({
     TWELVE_DATA_API_KEY: 'demo-key',
     QQ_BOT_MODE: 'onebot',
@@ -87,11 +89,11 @@ test('readConfig parses overseas ai news limit separately', () => {
     ONEBOT_MESSAGE_TYPE: 'group',
     ONEBOT_TARGET_ID: '123456',
     MARKET_TECH_AI_NEWS_LIMIT: '10',
-    MARKET_OVERSEAS_AI_NEWS_LIMIT: '5',
+    MARKET_OVERSEAS_TECH_NEWS_LIMIT: '5',
   });
 
   assert.equal(config.techAiNewsLimit, 10);
-  assert.equal(config.overseasAiNewsLimit, 5);
+  assert.equal(config.overseasTechNewsLimit, 5);
 });
 
 test('readConfig parses onebot extra targets for group and private delivery', () => {
@@ -617,7 +619,7 @@ test('dedupeNewsSectionsForMessage removes duplicate topics within and across se
   assert.match(sections[1].items[0].summary, /A股成交额突破1万亿元/u);
 });
 
-test('dedupeNewsSectionsForMessage keeps overseas ai independent from the main ai list', () => {
+test('dedupeNewsSectionsForMessage removes overseas tech items that duplicate the main ai list', () => {
   const sections = dedupeNewsSectionsForMessage([
     {
       category: 'tech-ai',
@@ -631,8 +633,8 @@ test('dedupeNewsSectionsForMessage keeps overseas ai independent from the main a
       ],
     },
     {
-      category: 'overseas-ai',
-      title: '海外AI',
+      category: 'overseas-tech',
+      title: '海外科技',
       error: '',
       items: [
         {
@@ -644,7 +646,41 @@ test('dedupeNewsSectionsForMessage keeps overseas ai independent from the main a
   ]);
 
   assert.equal(sections[0].items.length, 1);
-  assert.equal(sections[1].items.length, 1);
+  assert.equal(sections[1].items.length, 0);
+  assert.equal(sections[1].emptyText, '今天暂无新的新闻。');
+});
+
+test('dedupeNewsSectionsForMessage removes overseas tech rewrites of the same AI company event', () => {
+  const sections = dedupeNewsSectionsForMessage([
+    {
+      category: 'tech-ai',
+      title: 'AI',
+      error: '',
+      items: [
+        {
+          title:
+            'Anthropic and OpenAI now agree on one thing: selling AI requires a lot more than just the AI',
+          summary: 'Anthropic 和 OpenAI 都在加强面向企业客户的 AI 服务合作。',
+        },
+      ],
+    },
+    {
+      category: 'overseas-tech',
+      title: '海外科技',
+      error: '',
+      items: [
+        {
+          title:
+            'Anthropic and OpenAI are both launching joint ventures for enterprise AI services',
+          summary: 'Anthropic 和 OpenAI 分别推出面向企业 AI 服务的联合项目。',
+        },
+      ],
+    },
+  ]);
+
+  assert.equal(sections[0].items.length, 1);
+  assert.equal(sections[1].items.length, 0);
+  assert.equal(sections[1].emptyText, '今天暂无新的新闻。');
 });
 
 test('classifyTechAiNewsRegion separates international and domestic ai news', () => {
@@ -752,6 +788,15 @@ test('default AI sources include additional high-quality international feeds', (
   assert.ok(sourceNames.includes('MIT Technology Review AI'));
 });
 
+test('default overseas tech sources include broad international tech feeds', () => {
+  const sourceNames = OVERSEAS_TECH_NEWS_SOURCES.map((source) => source.name);
+
+  assert.ok(sourceNames.includes('The Verge'));
+  assert.ok(sourceNames.includes('Ars Technica'));
+  assert.ok(sourceNames.includes('Engadget'));
+  assert.ok(sourceNames.includes('TechCrunch'));
+});
+
 test('parseTechAiSourceItems decodes RSS title entities from international feeds', () => {
   const items = parseTechAiSourceItems(
     `
@@ -781,6 +826,58 @@ test('parseTechAiSourceItems decodes RSS title entities from international feeds
   assert.equal(
     items[0].summary,
     "OpenAI's Privacy Filter expands enterprise AI agents.",
+  );
+});
+
+test('selectOverseasTechNewsItems keeps broad overseas tech hard news and filters soft posts', () => {
+  const items = selectOverseasTechNewsItems(
+    [
+      {
+        title:
+          'Apple releases emergency security updates for iOS, macOS and Safari',
+        summary:
+          'Apple releases emergency security updates for iOS, macOS and Safari.',
+        source: 'The Verge',
+        sourcePriority: 8,
+        region: 'international',
+        publishedAt: new Date('2026-05-05T08:00:00+08:00'),
+      },
+      {
+        title:
+          'OpenAI launches enterprise agent workspace for secure workflows',
+        summary:
+          'OpenAI launches enterprise agent workspace for secure workflows.',
+        source: 'TechCrunch',
+        sourcePriority: 8,
+        region: 'international',
+        publishedAt: new Date('2026-05-05T08:05:00+08:00'),
+      },
+      {
+        title: 'How to pick the best phone camera for your vacation',
+        summary: 'A buying guide for phone cameras.',
+        source: 'Engadget',
+        sourcePriority: 7,
+        region: 'international',
+        publishedAt: new Date('2026-05-05T08:10:00+08:00'),
+      },
+    ],
+    {
+      overseasTechNewsLimit: 5,
+      newsSummaryMaxLength: 48,
+    },
+    new Date('2026-05-05T09:00:00+08:00'),
+  );
+
+  assert.equal(items.length, 2);
+  assert.ok(
+    items.some((item) => /Apple releases emergency security/u.test(item.title)),
+  );
+  assert.ok(
+    items.some((item) => /OpenAI launches enterprise/u.test(item.title)),
+  );
+  assert.equal(
+    items.some((item) => /best phone camera/u.test(item.title)),
+    false,
   );
 });
 
@@ -1198,10 +1295,10 @@ test('runMarketPush allows repeated hot news across different push times', async
       sourceTimestamp: '2026-04-01 13:25:00',
     }),
     newsFetcher: async (category) => {
-      if (category === 'overseas-ai') {
+      if (category === 'overseas-tech') {
         return {
           category,
-          title: '海外AI',
+          title: '海外科技',
           error: '',
           items: [],
         };
@@ -1286,10 +1383,10 @@ test('runMarketPush removes duplicate stories between ai and finance sections', 
       sourceTimestamp: '2026-04-01 18:25:00',
     }),
     newsFetcher: async (category) => {
-      if (category === 'overseas-ai') {
+      if (category === 'overseas-tech') {
         return {
           category,
-          title: '海外AI',
+          title: '海外科技',
           error: '',
           items: [],
         };
@@ -2700,8 +2797,8 @@ test('runMarketPush supports dry-run mode', async () => {
       title:
         category === 'finance'
           ? '财经'
-          : category === 'overseas-ai'
-            ? '海外AI'
+          : category === 'overseas-tech'
+            ? '海外科技'
             : 'AI',
       error: '',
       items:
@@ -2712,8 +2809,8 @@ test('runMarketPush supports dry-run mode', async () => {
                 title: `${category} 新闻 1`,
                 publishedAt: new Date('2026-03-30T09:00:00+08:00'),
                 summary:
-                  category === 'overseas-ai'
-                    ? 'Anthropic 发布海外 Claude 企业智能体更新。'
+                  category === 'overseas-tech'
+                    ? 'Apple 发布海外 iOS 安全更新。'
                     : 'OpenAI 扩展 Responses API，为自主智能体提供基础设施。',
               },
             ],
@@ -2729,7 +2826,7 @@ test('runMarketPush supports dry-run mode', async () => {
   assert.match(result.message, /上证（SH）：3,230\.18（\+0\.24%）/);
   assert.match(result.message, /【AI Top 1】/);
   assert.match(result.message, /【财经 Top 0】/);
-  assert.match(result.message, /【海外AI Top 1】/);
+  assert.match(result.message, /【海外科技 Top 1】/);
   assert.match(result.message, /暂无符合条件的新闻。/u);
 });
 
@@ -2788,8 +2885,8 @@ test('runMarketPush tolerates single quote fetch failure and still pushes report
       title:
         category === 'finance'
           ? '财经'
-          : category === 'overseas-ai'
-            ? '海外AI'
+          : category === 'overseas-tech'
+            ? '海外科技'
             : 'AI',
       error: '',
       items: [
@@ -2797,15 +2894,15 @@ test('runMarketPush tolerates single quote fetch failure and still pushes report
           title:
             category === 'finance'
               ? 'A股成交额回升'
-              : category === 'overseas-ai'
-                ? 'Anthropic 发布海外 Claude 企业智能体更新'
+              : category === 'overseas-tech'
+                ? 'Apple 发布海外 iOS 安全更新'
                 : 'OpenAI 发布新一代图像模型',
           publishedAt: new Date('2026-04-27T17:55:00+08:00'),
           summary:
             category === 'finance'
               ? 'A股成交额回升。'
-              : category === 'overseas-ai'
-                ? 'Anthropic 发布海外 Claude 企业智能体更新。'
+              : category === 'overseas-tech'
+                ? 'Apple 发布海外 iOS 安全更新。'
                 : 'OpenAI 发布新一代图像模型。',
         },
       ],
