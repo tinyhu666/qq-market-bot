@@ -274,4 +274,5 @@
 - change283 日期:2026-04-29 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充海外 AI 独立榜单、去重边界和 dry-run 验收标准 | 关联:task050
 - change284 日期:2026-04-29 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充海外 AI Top 5 的优先级与消息级去重风险 | 关联:task050
 - change285 日期:2026-04-29 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task050，记录海外 AI 独立 Top 5 的实现与验证闭环 | 关联:task050
+- change286 日期:2026-05-05 | 文件:服务器:/home/ubuntu/stock-bot | 操作:Modify | 影响:线上运行版本 | 说明:合并 PR #1 后同步 `scripts/qq-market-bot.mjs`、测试和 README 到服务器运行目录，并通过包装脚本 dry-run 验证输出 `海外AI Top 5` | 关联:task050
 - change168 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充联想/高德的国内区域识别断言，并将促销文案样例纳入 AI 候选过滤测试 | 关联:task031
