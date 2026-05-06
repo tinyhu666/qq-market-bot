@@ -875,10 +875,84 @@ test('selectOverseasTechNewsItems keeps broad overseas tech hard news and filter
   assert.ok(
     items.some((item) => /OpenAI launches enterprise/u.test(item.title)),
   );
+  assert.ok(
+    items.some(
+      (item) => item.summary === '苹果发布iOS、macOS和Safari紧急安全更新。',
+    ),
+  );
+  assert.ok(
+    items.some((item) => item.summary === 'OpenAI推出企业级智能体工作台。'),
+  );
+  assert.equal(
+    items.every((item) => /[\u4e00-\u9fff]/u.test(item.summary)),
+    true,
+  );
   assert.equal(
     items.some((item) => /best phone camera/u.test(item.title)),
     false,
   );
+});
+
+test('selectOverseasTechNewsItems rewrites live-style overseas tech headlines into informative Chinese', () => {
+  const items = selectOverseasTechNewsItems(
+    [
+      {
+        title:
+          'Apple plans to make iOS 27 a Choose Your Own Adventure of AI models',
+        summary:
+          'Apple plans to make iOS 27 a Choose Your Own Adventure of AI models.',
+        source: 'The Verge',
+        sourcePriority: 9,
+        region: 'international',
+        publishedAt: new Date('2026-05-06T08:00:00+08:00'),
+      },
+      {
+        title:
+          'Nuro receives driverless testing permit ahead of Uber robotaxi service launch',
+        summary:
+          'Nuro receives driverless testing permit ahead of Uber robotaxi service launch.',
+        source: 'TechCrunch',
+        sourcePriority: 8,
+        region: 'international',
+        publishedAt: new Date('2026-05-06T08:05:00+08:00'),
+      },
+      {
+        title:
+          'SAP bets $1.16B on 18-month-old German AI lab and says yes to NemoClaw',
+        summary:
+          'SAP bets $1.16B on 18-month-old German AI lab and says yes to NemoClaw.',
+        source: 'TechCrunch',
+        sourcePriority: 8,
+        region: 'international',
+        publishedAt: new Date('2026-05-06T08:10:00+08:00'),
+      },
+      {
+        title:
+          'Character.AI sued over chatbot that claims to be a real doctor with a license',
+        summary:
+          'Character.AI sued over chatbot that claims to be a real doctor with a license.',
+        source: 'Ars Technica',
+        sourcePriority: 8,
+        region: 'international',
+        publishedAt: new Date('2026-05-06T08:15:00+08:00'),
+      },
+    ],
+    {
+      overseasTechNewsLimit: 5,
+      newsSummaryMaxLength: 64,
+    },
+    new Date('2026-05-06T09:00:00+08:00'),
+  );
+
+  const summaries = items.map((item) => item.summary);
+  for (const expectedSummary of [
+    '苹果计划让iOS 27支持用户选择不同AI模型。',
+    'Nuro在Uber机器人出租车上线前获得无人驾驶测试许可。',
+    'SAP向德国AI实验室投入11.6亿美元。',
+    'Character.AI因聊天机器人自称持证医生遭起诉。',
+  ]) {
+    assert.ok(summaries.includes(expectedSummary), expectedSummary);
+  }
 });
 
 test('selectTechAiNewsItems prefers higher-priority sources when relevance is similar', () => {

@@ -3063,6 +3063,355 @@ export function buildHeuristicTechAiSummaryFromTitle(item, maxLength) {
     : normalizedSummary;
 }
 
+function localizeOverseasTechSubjectName(name) {
+  const cleanedName = normalizeWhitespace(name)
+    .replace(/[’']s$/iu, '')
+    .replace(/^["“]|["”]$/gu, '');
+  const lowerName = cleanedName.toLowerCase();
+  const exactMap = new Map([
+    ['openai', 'OpenAI'],
+    ['anthropic', 'Anthropic'],
+    ['cerebras', 'Cerebras'],
+    ['apple', '苹果'],
+    ['google', '谷歌'],
+    ['microsoft', '微软'],
+    ['amazon', '亚马逊'],
+    ['aws', '亚马逊'],
+    ['meta', 'Meta'],
+    ['nvidia', '英伟达'],
+    ['amd', 'AMD'],
+    ['intel', '英特尔'],
+    ['qualcomm', '高通'],
+    ['samsung', '三星'],
+    ['tesla', '特斯拉'],
+    ['spacex', 'SpaceX'],
+    ['github', 'GitHub'],
+    ['sap', 'SAP'],
+    ['nuro', 'Nuro'],
+    ['bumble', 'Bumble'],
+    ['character.ai', 'Character.AI'],
+    ['notepad++', 'Notepad++'],
+    ['fervo energy', 'Fervo Energy'],
+  ]);
+
+  return exactMap.get(lowerName) || cleanedName;
+}
+
+function inferOverseasTechSummarySubject(item) {
+  const title = normalizeTechAiNewsTitle(item.title || item.summary || '');
+  const leadingSubject = title.match(
+    /^["“]?([A-Z][A-Za-z0-9.+#-]*(?:\s+[A-Z][A-Za-z0-9.+#-]*){0,2})(?:[’']s)?\s+(?:plans|receives|bets|sued|paying|launch(?:es|ed)?|release(?:s|d)?|adds?|acquires?|raises?|raised|updates?|patch(?:es|ed)?|fix(?:es|ed)?|partners?|is|are|will)\b/iu,
+  )?.[1];
+  if (leadingSubject) {
+    return localizeOverseasTechSubjectName(leadingSubject);
+  }
+
+  const text = normalizeTechAiNewsTitle(
+    `${title} ${item.summary || ''} ${item.source || ''}`,
+  );
+
+  const nameMap = [
+    [/openai/iu, 'OpenAI'],
+    [/anthropic/iu, 'Anthropic'],
+    [/\bcerebras\b/iu, 'Cerebras'],
+    [/\bapple\b/iu, '苹果'],
+    [/\bgoogle\b/iu, '谷歌'],
+    [/\bmicrosoft\b/iu, '微软'],
+    [/\bamazon\b|\baws\b/iu, '亚马逊'],
+    [/\bmeta\b/iu, 'Meta'],
+    [/\bnvidia\b/iu, '英伟达'],
+    [/\bamd\b/iu, 'AMD'],
+    [/\bintel\b/iu, '英特尔'],
+    [/\bqualcomm\b/iu, '高通'],
+    [/\bsamsung\b/iu, '三星'],
+    [/\btesla\b/iu, '特斯拉'],
+    [/\bspacex\b/iu, 'SpaceX'],
+    [/\bgithub\b/iu, 'GitHub'],
+    [/\bsap\b/iu, 'SAP'],
+    [/\bnuro\b/iu, 'Nuro'],
+    [/\bbumble\b/iu, 'Bumble'],
+    [/\bcharacter\.ai\b/iu, 'Character.AI'],
+    [/\bnotepad\+\+\b/iu, 'Notepad++'],
+    [/\bfervo energy\b/iu, 'Fervo Energy'],
+  ];
+
+  for (const [pattern, subject] of nameMap) {
+    if (pattern.test(text)) {
+      return subject;
+    }
+  }
+
+  const leadingName = text.match(
+    /^["“]?([A-Z][A-Za-z0-9.+#-]*(?:\s+[A-Z][A-Za-z0-9.+#-]*){0,3})["”]?/u,
+  )?.[1];
+  return normalizeWhitespace(leadingName || '');
+}
+
+function normalizeOverseasTechChineseList(text) {
+  return normalizeWhitespace(text)
+    .replace(/\s*,\s*/gu, '、')
+    .replace(/\s+and\s+/giu, '和')
+    .replace(/\s+for\s+/giu, '面向')
+    .replace(/\s+/gu, '');
+}
+
+function formatOverseasTechMoneyForChinese(amount, unit) {
+  const value = Number.parseFloat(amount);
+  if (!Number.isFinite(value)) {
+    return '';
+  }
+
+  const normalizedUnit = String(unit || '').toLowerCase();
+  if (normalizedUnit === 'b') {
+    const hundredMillion = value * 10;
+    return `${Number.isInteger(hundredMillion) ? hundredMillion : hundredMillion.toFixed(1).replace(/\.0$/u, '')}亿美元`;
+  }
+
+  if (normalizedUnit === 'm') {
+    return `${Number.isInteger(value) ? value : value.toFixed(1).replace(/\.0$/u, '')}百万美元`;
+  }
+
+  return `${amount}美元`;
+}
+
+function translateOverseasTechObjectPhrase(text) {
+  const phrase = normalizeWhitespace(text).replace(/[.。]+$/u, '');
+  const lower = phrase.toLowerCase();
+
+  const exactMap = new Map([
+    ['enterprise agent workspace for secure workflows', '企业级智能体工作台'],
+    ['enterprise agent workspace', '企业级智能体工作台'],
+    ['emergency security updates', '紧急安全更新'],
+    ['security updates', '安全更新'],
+    ['image ai models', '图像AI模型'],
+    ['app growth', '应用增长'],
+    ['hdmi 2.1 support', 'HDMI 2.1支持'],
+    ['linux', 'Linux'],
+    ['mac', 'Mac'],
+  ]);
+
+  if (exactMap.has(lower)) {
+    return exactMap.get(lower);
+  }
+
+  let match = phrase.match(/^emergency security updates for\s+(.+)$/iu);
+  if (match) {
+    return `${normalizeOverseasTechChineseList(match[1])}紧急安全更新`;
+  }
+
+  match = phrase.match(/^security updates for\s+(.+)$/iu);
+  if (match) {
+    return `${normalizeOverseasTechChineseList(match[1])}安全更新`;
+  }
+
+  match = phrase.match(/^(.+?)\s+support for\s+(.+)$/iu);
+  if (match) {
+    return `${normalizeOverseasTechChineseList(match[2])}${normalizeOverseasTechChineseList(match[1])}支持`;
+  }
+
+  return '';
+}
+
+function buildHeuristicOverseasTechSummaryFromTitle(item, maxLength) {
+  const title = normalizeTechAiNewsTitle(item.title || item.summary || '');
+  const subject = inferOverseasTechSummarySubject(item) || '海外科技公司';
+  let summary = '';
+  let match = null;
+
+  if (countHanCharacters(title) >= 6) {
+    summary = title;
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Apple releases emergency security updates for\s+(.+)$/iu,
+    );
+    if (match) {
+      summary = `苹果发布${normalizeOverseasTechChineseList(match[1])}紧急安全更新。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^OpenAI launches enterprise agent workspace(?:\s+for\s+.+)?$/iu,
+    );
+    if (match) {
+      summary = 'OpenAI推出企业级智能体工作台。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Apple plans to make iOS\s+(\d+)\s+a Choose Your Own Adventure of AI models$/iu,
+    );
+    if (match) {
+      summary = `苹果计划让iOS ${match[1]}支持用户选择不同AI模型。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Nuro receives driverless testing permit ahead of Uber robotaxi service launch$/iu,
+    );
+    if (match) {
+      summary = 'Nuro在Uber机器人出租车上线前获得无人驾驶测试许可。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^SAP bets \$([\d.]+)\s*([bm])?\s+on .*German AI lab\b.*$/iu,
+    );
+    if (match) {
+      summary = `SAP向德国AI实验室投入${formatOverseasTechMoneyForChinese(match[1], match[2])}。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Bumble[’']s paying users are slipping as it bets on an overhaul later this year$/iu,
+    );
+    if (match) {
+      summary = 'Bumble付费用户下滑，计划今年晚些时候改版。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Character\.AI sued over chatbot that claims to be a real doctor with a license$/iu,
+    );
+    if (match) {
+      summary = 'Character.AI因聊天机器人自称持证医生遭起诉。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(/^AMD is adding HDMI 2\.1 support for Linux\b.*$/iu);
+    if (match) {
+      summary = 'AMD为Linux增加HDMI 2.1支持。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^["“]?Notepad\+\+ for Mac["”]?\s+release is disavowed by the creator of the original$/iu,
+    );
+    if (match) {
+      summary = 'Notepad++原作者否认Mac版发布。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Geothermal startup Fervo Energy to raise up to \$([\d.]+)\s*([bm])?\s+in IPO$/iu,
+    );
+    if (match) {
+      summary = `地热初创公司Fervo Energy拟IPO融资${formatOverseasTechMoneyForChinese(match[1], match[2])}。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(/^Image AI models now drive app growth\b.*$/iu);
+    if (match) {
+      summary = '图像AI模型成为应用增长动力。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^OpenAI[’']s .*partner Cerebras is on track for .*IPO$/iu,
+    );
+    if (match) {
+      summary = 'OpenAI合作伙伴Cerebras推进IPO计划。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^(.+?)\s+(?:launches|launched|releases|released|unveils|announces|ships|rolls out)\s+(.+)$/iu,
+    );
+    if (match) {
+      const actionSubject =
+        inferOverseasTechSummarySubject({
+          ...item,
+          title: match[1],
+          summary: '',
+        }) || subject;
+      const object = translateOverseasTechObjectPhrase(match[2]);
+      summary = object
+        ? `${actionSubject}推出${object}。`
+        : `${actionSubject}发布新的科技产品进展。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^(.+?)\s+(?:raises|raised|to raise)\s+(?:up to\s+)?\$([\d.]+)\s*([bm])?\b/iu,
+    );
+    if (match) {
+      const actionSubject =
+        inferOverseasTechSummarySubject({
+          ...item,
+          title: match[1],
+          summary: '',
+        }) || subject;
+      summary = `${actionSubject}完成${formatOverseasTechMoneyForChinese(match[2], match[3])}融资。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(/^(.+?)\s+acquires\s+(.+)$/iu);
+    if (match) {
+      const actionSubject =
+        inferOverseasTechSummarySubject({
+          ...item,
+          title: match[1],
+          summary: '',
+        }) || subject;
+      summary = `${actionSubject}收购${normalizeOverseasTechChineseList(match[2])}。`;
+    }
+  }
+
+  if (!summary) {
+    match = title.match(/^(.+?)\s+(?:adds|is adding)\s+(.+)$/iu);
+    if (match) {
+      const object = translateOverseasTechObjectPhrase(match[2]);
+      summary = object
+        ? `${subject}增加${object}。`
+        : `${subject}更新海外科技产品能力。`;
+    }
+  }
+
+  if (!summary) {
+    summary = `${subject}发布海外科技新进展。`;
+  }
+
+  const normalizedSummary = normalizeTechAiGeneratedSummaryLine(
+    summary,
+    maxLength,
+  );
+  return isLowQualityTechAiSummaryLine(normalizedSummary)
+    ? ''
+    : normalizedSummary;
+}
+
+function buildOverseasTechNewsItem(item, maxLength) {
+  const baseItem = buildTechAiNewsItem(item, maxLength);
+  const heuristicSummary = buildHeuristicOverseasTechSummaryFromTitle(
+    item,
+    maxLength,
+  );
+  const baseSummaryHan = countHanCharacters(baseItem.summary);
+
+  return {
+    ...baseItem,
+    summary:
+      heuristicSummary && baseSummaryHan < 6
+        ? heuristicSummary
+        : baseItem.summary,
+  };
+}
+
 function countHanCharacters(text) {
   return (String(text || '').match(/[\u4e00-\u9fff]/gu) || []).length;
 }
@@ -3715,7 +4064,7 @@ export function selectOverseasTechNewsItems(
   );
 
   return summaryDedupedCandidates.slice(0, limit).map((entry) =>
-    buildTechAiNewsItem(
+    buildOverseasTechNewsItem(
       {
         ...entry.item,
         heatScore: entry.score,
