@@ -130,7 +130,7 @@ typings/
 同时附带：
 
 - `OpenAI News`、`Google AI / DeepMind`、`NVIDIA`、`Microsoft Research`、`AWS Machine Learning`、`Hugging Face`、`MIT Technology Review AI`、`The Decoder`、`AI News`、`量子位` 等源过去 `24` 小时内合并后的 AI 热榜
-- 仅使用海外科技源单独生成的 `海外科技 Top 5`，并与原 `AI Top 10` 做同轮去重
+- 仅使用海外科技源单独生成的 `海外科技 Top 5`，并与原 `AI Top 10` 做同轮去重；海外英文标题会改写成中文摘要后再进入最终消息
 - `第一财经资讯页` + `36氪快讯` 组合出的财经 `10` 条，不足时再回退到东方财富
 
 消息格式采用“时间 + 价格列表 + 新闻列表”的精简形式。实现文件在 [scripts/qq-market-bot.mjs](/Users/hurui/Downloads/stock/miniprogram/scripts/qq-market-bot.mjs)。
@@ -153,7 +153,7 @@ typings/
 新闻部分默认改为：
 
 - `AI` 新闻优先抓取 `OpenAI News`、`Google AI`、`Google DeepMind`、`NVIDIA Blog`、`NVIDIA Technical Blog`、`Microsoft Research`、`AWS Machine Learning Blog`、`Hugging Face Blog`、`VentureBeat AI`、`TechCrunch AI`、`MIT Technology Review AI`、`The Decoder`、`AI News` 这类国际源
-- `海外科技` 默认抓取 `The Verge`、`Ars Technica`、`Engadget`、`TechCrunch`、`MIT Technology Review` 等海外科技源，单独输出 `5` 条；如果与前面的 `AI Top 10` 命中同一事件，会被同轮去重过滤
+- `海外科技` 默认抓取 `The Verge`、`Ars Technica`、`Engadget`、`TechCrunch`、`MIT Technology Review` 等海外科技源，单独输出 `5` 条；英文 RSS 标题会保留作溯源和去重，但最终消息行会改写成中文硬新闻摘要；如果与前面的 `AI Top 10` 命中同一事件，会被同轮去重过滤
 - 国内 AI 候选默认优先使用 `量子位`；`AIBase` 会作为低优先级回填源参与补量，但同一轮最多保留 `1` 条，并且会对同事件改写稿做额外去重
 - 财经新闻优先使用 `第一财经` 资讯页与 `36氪快讯` 的标题型源；如果结果不足，再回退到东方财富妙享 `skill` 或公开 `7*24` 快讯接口
 
@@ -279,7 +279,7 @@ npm run market:push
 1. ...
 
 【海外科技 Top 5】
-1. ...
+1. 苹果计划让iOS 27支持用户选择不同AI模型。
 ```
 
 ### 6. 安装 cron
