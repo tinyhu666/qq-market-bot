@@ -300,3 +300,4 @@ change297 日期:2026-05-06 | 文件:miniprogram/README.md | 操作:Modify | 影
 change298 日期:2026-05-06 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充海外科技 Top 5 最终摘要必须中文化的规格、边界和验收标准 | 关联:task052
 change299 日期:2026-05-06 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充海外科技英文 RSS 中文化优先级和模板泛化风险 | 关联:task052
 change300 日期:2026-05-06 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task052，记录海外科技中文摘要修复与验证闭环 | 关联:task052
+change301 日期:2026-05-06 | 文件:服务器:/home/ubuntu/stock-bot | 操作:Modify | 影响:线上运行版本 | 说明:合并 PR #3 后同步脚本、测试和 README 到服务器运行目录，并通过包装脚本 dry-run 验证 `海外科技 Top 5` 输出 5 条中文摘要 | 关联:task052
