@@ -300,4 +300,5 @@
 - change309 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/issue_market_bot_20260330.md | 操作:Modify | 影响:阶段问题记录 | 说明:补充 issue005 的现象、复现、根因与修复，记录本轮摘要质量缺陷闭环 | 关联:task053
 - change310 日期:2026-05-08 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 单条摘要回退 | 说明:真实线上 dry-run 发现 Parloa 摘要仍保留“客户愿意交谈的服务代理”这类 awkward 表达，改为优先使用明确中文事件兜底 | 关联:task053
 - change311 日期:2026-05-08 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:摘要质量回归测试 | 说明:补充 Parloa 服务代理标题在 LLM 输出 awkward 中文时必须回退到规则化中文摘要的断言 | 关联:task053
+- change312 日期:2026-05-08 | 文件:服务器:/home/ubuntu/stock-bot | 操作:Modify | 影响:线上运行版本 | 说明:同步 main 最新脚本、测试和 README 到服务器运行目录，服务器测试 57 项通过，并通过真实配置 dry-run 验证 AI 与海外科技摘要均为可读中文事件句 | 关联:task053
 - change168 日期:2026-04-01 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:脚本验证 | 说明:补充联想/高德的国内区域识别断言，并将促销文案样例纳入 AI 候选过滤测试 | 关联:task031
