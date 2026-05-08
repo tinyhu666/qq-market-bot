@@ -10,6 +10,7 @@ import {
   dedupeNewsSectionsForMessage,
   fetchNewsSection,
   fetchQuote,
+  generateOverseasTechNewsSummariesWithLlm,
   formatReport,
   generateFinanceNewsWithLlm,
   generateTechAiNewsWithLlm,
@@ -544,6 +545,102 @@ test('selectTechAiNewsItems filters noisy titles, trims multi-topic headlines, a
   );
 });
 
+test('selectTechAiNewsItems uses concrete Chinese summaries for known English AI headlines', () => {
+  const items = selectTechAiNewsItems(
+    [
+      {
+        title: 'Parloa builds service agents customers want to talk to',
+        summary: 'Parloa builds service agents customers want to talk to',
+        source: 'OpenAI News',
+        sourcePriority: 9,
+        region: 'international',
+        publishedAt: new Date('2026-05-08T08:00:00+08:00'),
+      },
+      {
+        title:
+          'Agents that transact: Introducing Amazon Bedrock AgentCore payments, built with Coinbase and Stripe',
+        summary:
+          'Agents that transact: Introducing Amazon Bedrock AgentCore payments, built with Coinbase and Stripe',
+        source: 'AWS Machine Learning Blog',
+        sourcePriority: 8,
+        region: 'international',
+        publishedAt: new Date('2026-05-08T08:05:00+08:00'),
+      },
+      {
+        title: 'Advancing voice intelligence with new models in the API',
+        summary: 'Advancing voice intelligence with new models in the API',
+        source: 'OpenAI News',
+        sourcePriority: 9,
+        region: 'international',
+        publishedAt: new Date('2026-05-08T08:10:00+08:00'),
+      },
+    ],
+    {
+      techAiNewsLimit: 3,
+      newsSummaryMaxLength: 80,
+    },
+    new Date('2026-05-08T10:00:00+08:00'),
+  );
+
+  assert.deepEqual(
+    items.map((item) => item.summary).sort(),
+    [
+      'AWS联合Coinbase和Stripe推出AgentCore支付能力。',
+      'OpenAI在API中推出新语音智能模型。',
+      'Parloa基于OpenAI模型构建客户服务语音代理。',
+    ].sort(),
+  );
+});
+
+test('selectTechAiNewsItems replaces vague Chinese AI summaries with explicit event summaries', () => {
+  const items = selectTechAiNewsItems(
+    [
+      {
+        title:
+          '全线封杀！Claude桌面端收紧限制，DeepSeek V4 等第三方模型已无法直接接入',
+        summary:
+          '吸引大量开发者利用该兼容性整合不同模型，但这一开放举措仅维持约两周便终止。',
+        source: 'AIBase',
+        sourcePriority: 7,
+        region: 'domestic',
+        publishedAt: new Date('2026-05-08T08:00:00+08:00'),
+      },
+      {
+        title:
+          '云知声山海知医慧保大模型重磅发布：以高密智能深耕高价值场景，重构医疗保险数智新生态',
+        summary:
+          '云知声山海知医慧保大模型重磅发布：以高密智能深耕高价值场景，重构医疗保险数智新生态。',
+        source: 'AIBase',
+        sourcePriority: 7,
+        region: 'domestic',
+        publishedAt: new Date('2026-05-08T08:05:00+08:00'),
+      },
+      {
+        title: '波士顿动力泯然众人了，高管集体出走，机器人“量产”只能造4台',
+        summary: '波士顿动力泯然众人了，高管集体出走，机器人“量产”只能造4台。',
+        source: '量子位',
+        sourcePriority: 7,
+        region: 'domestic',
+        publishedAt: new Date('2026-05-08T08:10:00+08:00'),
+      },
+    ],
+    {
+      techAiNewsLimit: 3,
+      newsSummaryMaxLength: 64,
+    },
+    new Date('2026-05-08T10:00:00+08:00'),
+  );
+
+  assert.deepEqual(
+    items.map((item) => item.summary).sort(),
+    [
+      'Anthropic收紧Claude桌面端限制，DeepSeek V4等第三方模型无法直接接入。',
+      '云知声发布山海知医慧保大模型，面向医疗保险场景。',
+      '波士顿动力多名高管离职，人形机器人量产进度受限。',
+    ].sort(),
+  );
+});
+
 test('selectTechAiHotlistItems keeps high-heat 7 plus 3 mix and fills remaining slots by heat', () => {
   const items = [
     ...Array.from({ length: 8 }, (_, index) => ({
@@ -952,6 +1049,109 @@ test('selectOverseasTechNewsItems rewrites live-style overseas tech headlines in
     'Character.AI因聊天机器人自称持证医生遭起诉。',
   ]) {
     assert.ok(summaries.includes(expectedSummary), expectedSummary);
+  }
+});
+
+test('generateOverseasTechNewsSummariesWithLlm rejects generic overseas tech summaries and falls back to concrete Chinese', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    items: [
+                      {
+                        candidateId: 'c01',
+                        summary: '亚马逊发布海外科技新进展。',
+                      },
+                      {
+                        candidateId: 'c02',
+                        summary:
+                          'Perplexity 面向所有 Mac 用户开放 Personal Computer。',
+                      },
+                      {
+                        candidateId: 'c03',
+                        summary: '谷歌发布无屏 Fitbit Air 健康追踪设备。',
+                      },
+                    ],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const items = await generateOverseasTechNewsSummariesWithLlm(
+      [
+        {
+          candidateId: 'c01',
+          item: {
+            title: "Jeff Bezos rep leaves Slate Auto's board",
+            summary:
+              "Melinda Lewison's departure raises questions about Bezos' support and involvement with the startup.",
+            source: 'TechCrunch',
+            sourcePriority: 8,
+            region: 'international',
+            publishedAt: new Date('2026-05-08T08:00:00+08:00'),
+          },
+        },
+        {
+          candidateId: 'c02',
+          item: {
+            title:
+              'Perplexity’s Personal Computer is now available to everyone on Mac',
+            summary:
+              "Perplexity's Personal Computer brings AI agents to your Mac, and is now open to everyone.",
+            source: 'TechCrunch',
+            sourcePriority: 8,
+            region: 'international',
+            publishedAt: new Date('2026-05-08T08:05:00+08:00'),
+          },
+        },
+        {
+          candidateId: 'c03',
+          item: {
+            title: 'Google unveils Whoop-like screenless Fitbit Air',
+            summary:
+              'The device comes with health and fitness tracking like heart rate and SpO2.',
+            source: 'TechCrunch',
+            sourcePriority: 8,
+            region: 'international',
+            publishedAt: new Date('2026-05-08T08:10:00+08:00'),
+          },
+        },
+      ],
+      {
+        newsSummaryMaxLength: 64,
+        overseasTechNewsLimit: 5,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-v4-pro',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.deepEqual(
+      items.map((item) => item.summary),
+      [
+        '贝索斯代表退出Slate Auto董事会。',
+        'Perplexity 面向所有 Mac 用户开放 Personal Computer。',
+        '谷歌发布无屏 Fitbit Air 健康追踪设备。',
+      ],
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });
 
@@ -2545,6 +2745,49 @@ test('buildHeuristicTechAiSummaryFromTitle rewrites editorialized english headli
     ),
     '西门子推出面向自动化工程的AI系统。',
   );
+  assert.equal(
+    buildHeuristicTechAiSummaryFromTitle(
+      {
+        title:
+          'Agents that transact: Introducing Amazon Bedrock AgentCore payments, built with Coinbase and Stripe',
+        source: 'AWS Machine Learning Blog',
+      },
+      80,
+    ),
+    'AWS联合Coinbase和Stripe推出AgentCore支付能力。',
+  );
+  assert.equal(
+    buildHeuristicTechAiSummaryFromTitle(
+      {
+        title: 'Parloa builds service agents customers want to talk to',
+        source: 'OpenAI News',
+      },
+      80,
+    ),
+    'Parloa基于OpenAI模型构建客户服务语音代理。',
+  );
+  assert.equal(
+    buildHeuristicTechAiSummaryFromTitle(
+      {
+        title:
+          'Model Quantization: Post-Training Quantization Using NVIDIA Model Optimizer',
+        source: 'NVIDIA Technical Blog',
+      },
+      48,
+    ),
+    '英伟达介绍Model Optimizer训练后量化方案。',
+  );
+  assert.equal(
+    buildHeuristicTechAiSummaryFromTitle(
+      {
+        title:
+          'Claude\'s new "Dreaming" feature is designed to let AI agents learn from their mistakes',
+        source: 'The Decoder',
+      },
+      64,
+    ),
+    'Anthropic推出Claude Dreaming功能，帮助智能体从错误中学习。',
+  );
 });
 
 test('generateTechAiNewsSummaryForCandidateWithLlm prefers heuristic summary when llm rewrites project codename awkwardly', async () => {
@@ -2657,6 +2900,61 @@ test('generateTechAiNewsSummaryForCandidateWithLlm prefers heuristic summary whe
     );
 
     assert.equal(item?.summary, 'Snowflake扩展技术与通用AI平台能力。');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateTechAiNewsSummaryForCandidateWithLlm falls back when llm summary lacks a subject', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    summary: '支持代理交易。',
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const item = await generateTechAiNewsSummaryForCandidateWithLlm(
+      {
+        candidateId: 'c01',
+        region: 'international',
+        item: {
+          title: 'OpenAI 发布 ChatGPT 代理交易功能',
+          summary:
+            'OpenAI 发布 ChatGPT 代理交易功能，允许用户通过智能体完成交易。',
+          source: 'OpenAI News',
+          sourcePriority: 10,
+          publishedAt: new Date('2026-05-08T08:00:00+08:00'),
+          heatScore: 180,
+        },
+      },
+      {
+        newsSummaryMaxLength: 64,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-v4-pro',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(item.summary, 'OpenAI 发布 ChatGPT 代理交易功能。');
   } finally {
     globalThis.fetch = originalFetch;
   }
