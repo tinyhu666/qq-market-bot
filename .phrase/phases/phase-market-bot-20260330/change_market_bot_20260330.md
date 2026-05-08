@@ -318,3 +318,4 @@ change315 日期:2026-05-08 | 文件:miniprogram/README.md | 操作:Modify | 影
 change316 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充 `AI HOT` JSON 源结构、浏览器 UA 和高优先级候选源验收口径 | 关联:task054
 change317 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 `AI HOT` 高优先级接入计划和 API 访问策略变化风险 | 关联:task054
 change318 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task054，记录 `AI HOT` 高优先级源接入与验证闭环 | 关联:task054
+change319 日期:2026-05-08 | 文件:服务器:/home/ubuntu/stock-bot | 操作:Modify | 影响:线上运行版本 | 说明:备份旧版本后同步 AI HOT 源接入脚本、测试和 README 到服务器运行目录，服务器测试 60 项通过，并用临时 env dry-run 验证 AI HOT 可进入 AI 榜且评论腔样本被过滤 | 关联:task054
