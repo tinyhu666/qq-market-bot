@@ -2905,6 +2905,60 @@ test('generateTechAiNewsSummaryForCandidateWithLlm prefers heuristic summary whe
   }
 });
 
+test('generateTechAiNewsSummaryForCandidateWithLlm prefers heuristic summary when llm keeps editorialized service-agent wording', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    summary: 'Parloa 构建客户愿意交谈的服务代理。',
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+  });
+
+  try {
+    const item = await generateTechAiNewsSummaryForCandidateWithLlm(
+      {
+        candidateId: 'c01',
+        region: 'international',
+        item: {
+          title: 'Parloa builds service agents customers want to talk to',
+          summary: 'Parloa builds service agents customers want to talk to.',
+          source: 'OpenAI News',
+          sourcePriority: 10,
+          publishedAt: new Date('2026-05-08T08:00:00+08:00'),
+          heatScore: 180,
+        },
+      },
+      {
+        newsSummaryMaxLength: 64,
+        aiNewsLlmProvider: 'gemini',
+        aiNewsLlmFallbackProvider: 'deepseek',
+        geminiApiKey: 'gemini-key',
+        deepseekApiKey: 'deepseek-key',
+        aiNewsGeminiModel: 'gemini-2.5-flash',
+        aiNewsDeepseekModel: 'deepseek-v4-pro',
+        aiNewsLlmTimeoutMs: 30000,
+      },
+    );
+
+    assert.equal(item.summary, 'Parloa基于OpenAI模型构建客户服务语音代理。');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('generateTechAiNewsSummaryForCandidateWithLlm falls back when llm summary lacks a subject', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => ({

@@ -309,3 +309,5 @@ change306 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/pl
 change307 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task053，记录 AI 与海外科技摘要可读性修复和验证闭环 | 关联:task053
 change308 日期:2026-05-08 | 文件:.phrase/docs/ISSUES.md | 操作:Modify | 影响:全局问题索引 | 说明:新增 issue005，记录 AI 与海外科技新闻摘要出现泛化和无主体短句的问题 | 关联:task053
 change309 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/issue_market_bot_20260330.md | 操作:Modify | 影响:阶段问题记录 | 说明:补充 issue005 的现象、复现、根因与修复，记录本轮摘要质量缺陷闭环 | 关联:task053
+change310 日期:2026-05-08 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 单条摘要回退 | 说明:真实线上 dry-run 发现 Parloa 摘要仍保留“客户愿意交谈的服务代理”这类 awkward 表达，改为优先使用明确中文事件兜底 | 关联:task053
+change311 日期:2026-05-08 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:摘要质量回归测试 | 说明:补充 Parloa 服务代理标题在 LLM 输出 awkward 中文时必须回退到规则化中文摘要的断言 | 关联:task053

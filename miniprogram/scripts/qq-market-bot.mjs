@@ -3617,6 +3617,10 @@ function shouldPreferHeuristicTechAiSummary(currentSummary, heuristicSummary) {
     return true;
   }
 
+  if (/客户愿意(?:交谈|与之交谈)的服务代理/u.test(currentSummary)) {
+    return true;
+  }
+
   const currentHan = countHanCharacters(currentSummary);
   const heuristicHan = countHanCharacters(heuristicSummary);
   const currentAscii = countAsciiLetters(currentSummary);
