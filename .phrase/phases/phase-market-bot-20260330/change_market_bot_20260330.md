@@ -301,3 +301,11 @@ change298 日期:2026-05-06 | 文件:.phrase/phases/phase-market-bot-20260330/sp
 change299 日期:2026-05-06 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充海外科技英文 RSS 中文化优先级和模板泛化风险 | 关联:task052
 change300 日期:2026-05-06 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task052，记录海外科技中文摘要修复与验证闭环 | 关联:task052
 change301 日期:2026-05-06 | 文件:服务器:/home/ubuntu/stock-bot | 操作:Modify | 影响:线上运行版本 | 说明:合并 PR #3 后同步脚本、测试和 README 到服务器运行目录，并通过包装脚本 dry-run 验证 `海外科技 Top 5` 输出 5 条中文摘要 | 关联:task052
+change302 日期:2026-05-08 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 与海外科技摘要质量门 | 说明:海外科技新增 LLM 中文硬新闻摘要链路，AI/海外科技共同拦截泛化句、无主体短句和英文截断，并补充真实样本的中文事件兜底 | 关联:task053
+change303 日期:2026-05-08 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:摘要质量回归测试 | 说明:补充海外科技泛化 LLM 摘要回退、AI 无主体短句回退、英文 AI 标题中文化和中文营销/上下文缺失摘要替换测试 | 关联:task053
+change304 日期:2026-05-08 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:说明海外科技摘要优先走大模型中文硬新闻改写，并拒绝泛化句；AI 摘要会回退无主体短句到明确中文事件句 | 关联:task053
+change305 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充 AI Top10 与海外科技 Top5 摘要必须主体、动作和对象明确的规格和验收标准 | 关联:task053
+change306 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充摘要语义完整性的优先级，以及固定模板和汉字长度质量门不足的风险 | 关联:task053
+change307 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task053，记录 AI 与海外科技摘要可读性修复和验证闭环 | 关联:task053
+change308 日期:2026-05-08 | 文件:.phrase/docs/ISSUES.md | 操作:Modify | 影响:全局问题索引 | 说明:新增 issue005，记录 AI 与海外科技新闻摘要出现泛化和无主体短句的问题 | 关联:task053
+change309 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/issue_market_bot_20260330.md | 操作:Modify | 影响:阶段问题记录 | 说明:补充 issue005 的现象、复现、根因与修复，记录本轮摘要质量缺陷闭环 | 关联:task053

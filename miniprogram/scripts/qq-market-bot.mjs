@@ -2281,6 +2281,10 @@ function isLowQualityTechAiSummaryLine(text) {
     return true;
   }
 
+  if (/^吸引大量开发者/u.test(text)) {
+    return true;
+  }
+
   if (
     /(?:走了，.+来了|暴增\d+%|靠[「“"][^」”]{1,12}[」”]|都能搞|真正自主支付的钱包)/u.test(
       text,
@@ -2290,7 +2294,9 @@ function isLowQualityTechAiSummaryLine(text) {
   }
 
   if (
-    /(?:唠嗑|vibe coding|这场闹剧|之所以能产生广泛影响|双重挑战)/iu.test(text)
+    /(?:唠嗑|vibe coding|这场闹剧|之所以能产生广泛影响|双重挑战|重磅发布|深耕高价值场景|重构[^，。！？!?]{0,12}数智新生态|泯然众人|全线封杀)/iu.test(
+      text,
+    )
   ) {
     return true;
   }
@@ -2300,6 +2306,18 @@ function isLowQualityTechAiSummaryLine(text) {
   }
 
   if (/^(?:本财年|下一阶段)/u.test(text)) {
+    return true;
+  }
+
+  if (
+    /^(?:支持|推动|推进|加速|提升|增强|扩展|优化|改善|重构|实现)[^，。！？!?]{0,18}[。.]?$/u.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+
+  if (/^IPO前夕[，,]/iu.test(text)) {
     return true;
   }
 
@@ -2361,6 +2379,22 @@ function isLowQualityTechAiSummaryLine(text) {
 
   if (
     /(?:可能从根本上重塑|进入[“"]?自动驾驶[”"]?时代|开始组团(?:上班|工作)|被视为[^，。]{0,24}新阶段)/u.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function isLowQualityOverseasTechSummaryLine(text) {
+  if (isLowQualityTechAiSummaryLine(text)) {
+    return true;
+  }
+
+  if (
+    /(?:发布海外科技新进展|发布新的科技产品进展|更新海外科技产品能力)/u.test(
       text,
     )
   ) {
@@ -2829,6 +2863,10 @@ function buildTechAiNewsItem(item, maxLength) {
     cleanedTitle,
     rawSourceSummary,
   );
+  const heuristicSummary = buildHeuristicTechAiSummaryFromTitle(
+    item,
+    maxLength,
+  );
   const summary = normalizeTechAiGeneratedSummaryLine(
     stripTechAiSummaryNoise(item.summary || item.title),
     maxLength,
@@ -2846,7 +2884,12 @@ function buildTechAiNewsItem(item, maxLength) {
     maxLength,
   );
   const fallbackSummary =
-    [titleFallbackSummary, rawFallbackSummary, leadingRawFallbackSummary]
+    [
+      heuristicSummary,
+      titleFallbackSummary,
+      rawFallbackSummary,
+      leadingRawFallbackSummary,
+    ]
       .filter(Boolean)
       .filter((candidate) => !isLowQualityTechAiSummaryLine(candidate))
       .map((candidate) => ({
@@ -2854,9 +2897,11 @@ function buildTechAiNewsItem(item, maxLength) {
         score:
           countTechAiPreservedKeyTerms(candidate, keyTermReference) * 40 +
           scoreSummaryCandidate(candidate, maxLength) +
+          (candidate === heuristicSummary ? 120 : 0) +
           (candidate === titleFallbackSummary ? 2 : 0),
       }))
       .sort((left, right) => right.score - left.score)[0]?.candidate ||
+    heuristicSummary ||
     titleFallbackSummary ||
     rawFallbackSummary ||
     '';
@@ -3043,6 +3088,85 @@ export function buildHeuristicTechAiSummaryFromTitle(item, maxLength) {
     if (match) {
       summary = '西门子推出面向自动化工程的AI系统。';
     }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Agents that transact:\s*Introducing Amazon Bedrock AgentCore payments,\s*built with Coinbase and Stripe$/iu,
+    );
+    if (match) {
+      summary = 'AWS联合Coinbase和Stripe推出AgentCore支付能力。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Parloa builds service agents customers want to talk to$/iu,
+    );
+    if (match) {
+      summary = 'Parloa基于OpenAI模型构建客户服务语音代理。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Scaling Trusted Access for Cyber with GPT-5\.5 and GPT-5\.5-Cyber$/iu,
+    );
+    if (match) {
+      summary = 'OpenAI用GPT-5.5和GPT-5.5-Cyber扩展网络安全可信访问。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Advancing voice intelligence with new models in the API$/iu,
+    );
+    if (match) {
+      summary = 'OpenAI在API中推出新语音智能模型。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Secure short-term GPU capacity for ML workloads with EC2 Capacity Blocks for ML and SageMaker training plans$/iu,
+    );
+    if (match) {
+      summary = 'AWS推出面向机器学习负载的短期GPU容量预留方案。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Model Quantization:\s*Post-Training Quantization Using NVIDIA Model Optimizer$/iu,
+    );
+    if (match) {
+      summary = '英伟达介绍Model Optimizer训练后量化方案。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Claude's new ["“]Dreaming["”] feature is designed to let AI agents learn from their mistakes$/iu,
+    );
+    if (match) {
+      summary = 'Anthropic推出Claude Dreaming功能，帮助智能体从错误中学习。';
+    }
+  }
+
+  if (!summary && /Claude桌面端收紧限制/u.test(title)) {
+    summary =
+      'Anthropic收紧Claude桌面端限制，DeepSeek V4等第三方模型无法直接接入。';
+  }
+
+  if (!summary && /云知声.*山海知医慧保.*大模型/u.test(title)) {
+    summary = '云知声发布山海知医慧保大模型，面向医疗保险场景。';
+  }
+
+  if (
+    !summary &&
+    /波士顿动力.*高管.*(?:出走|离职).*机器人.*(?:量产|造4台)/u.test(title)
+  ) {
+    summary = '波士顿动力多名高管离职，人形机器人量产进度受限。';
   }
 
   if (!summary) {
@@ -3327,6 +3451,45 @@ function buildHeuristicOverseasTechSummaryFromTitle(item, maxLength) {
   }
 
   if (!summary) {
+    match = title.match(/^Jeff Bezos rep leaves Slate Auto[’']s board$/iu);
+    if (match) {
+      summary = '贝索斯代表退出Slate Auto董事会。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Perplexity[’']s Personal Computer is now available to everyone on Mac$/iu,
+    );
+    if (match) {
+      summary = 'Perplexity面向所有Mac用户开放Personal Computer。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(/^Google unveils Whoop-like screenless Fitbit Air$/iu);
+    if (match) {
+      summary = '谷歌发布无屏Fitbit Air健康追踪设备。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(/^Bumble is getting rid of the swipe\b.*$/iu);
+    if (match) {
+      summary = 'Bumble将取消滑动匹配交互。';
+    }
+  }
+
+  if (!summary) {
+    match = title.match(
+      /^Ramp in talks to hit \$([\d.]+)\s*([bm])?\+?\s+valuation\b.*$/iu,
+    );
+    if (match) {
+      summary = `Ramp商谈新融资，估值或超${formatOverseasTechMoneyForChinese(match[1], match[2])}。`;
+    }
+  }
+
+  if (!summary) {
     match = title.match(
       /^(.+?)\s+(?:launches|launched|releases|released|unveils|announces|ships|rolls out)\s+(.+)$/iu,
     );
@@ -3390,7 +3553,7 @@ function buildHeuristicOverseasTechSummaryFromTitle(item, maxLength) {
     summary,
     maxLength,
   );
-  return isLowQualityTechAiSummaryLine(normalizedSummary)
+  return isLowQualityOverseasTechSummaryLine(normalizedSummary)
     ? ''
     : normalizedSummary;
 }
@@ -3402,13 +3565,14 @@ function buildOverseasTechNewsItem(item, maxLength) {
     maxLength,
   );
   const baseSummaryHan = countHanCharacters(baseItem.summary);
+  const shouldUseHeuristic =
+    heuristicSummary &&
+    (baseSummaryHan < 6 ||
+      isLowQualityOverseasTechSummaryLine(baseItem.summary));
 
   return {
     ...baseItem,
-    summary:
-      heuristicSummary && baseSummaryHan < 6
-        ? heuristicSummary
-        : baseItem.summary,
+    summary: shouldUseHeuristic ? heuristicSummary : baseItem.summary,
   };
 }
 
@@ -4190,6 +4354,13 @@ function buildAiNewsLlmCandidateList(items) {
   }));
 }
 
+function buildOverseasTechNewsLlmCandidateList(items) {
+  return items.map((item, index) => ({
+    candidateId: `c${String(index + 1).padStart(2, '0')}`,
+    item,
+  }));
+}
+
 function formatNewsLlmCandidateLine(candidateId, item) {
   const publishedAt =
     item.publishedAt instanceof Date &&
@@ -4232,6 +4403,22 @@ function formatAiNewsLlmCandidateLine(candidateId, item) {
   ].join(' | ');
 }
 
+function formatOverseasTechNewsLlmCandidateLine(candidateId, item) {
+  const publishedAt =
+    item.publishedAt instanceof Date &&
+    !Number.isNaN(item.publishedAt.valueOf())
+      ? item.publishedAt.toISOString()
+      : '';
+
+  return [
+    `${candidateId}`,
+    item.source || '未知来源',
+    publishedAt || '未知时间',
+    `标题：${item.title || item.summary || ''}`,
+    `原摘要：${item.llmSummary || item.summary || item.title || ''}`,
+  ].join(' | ');
+}
+
 function buildAiNewsLlmPrompt(candidates, config) {
   const domesticTarget = Math.min(
     DEFAULT_TECH_AI_DOMESTIC_NEWS_LIMIT,
@@ -4270,6 +4457,27 @@ function buildAiNewsLlmPrompt(candidates, config) {
     ...(orderedCandidates.length > 0
       ? orderedCandidates.map((candidate) =>
           formatAiNewsLlmCandidateLine(candidate.candidateId, candidate.item),
+        )
+      : ['无']),
+  ].join('\n');
+}
+
+function buildOverseasTechNewsSummaryPrompt(candidates) {
+  return [
+    `你是一名中文海外科技快讯编辑，请按给定顺序为最多 ${candidates.length} 条海外科技候选生成中文摘要。`,
+    '候选已经通过来源、发布时间和相关性筛选；你的任务是把英文标题和原摘要改写成中文硬新闻短句，不要重新选题。',
+    '每条都必须有明确主体、动作和对象，优先保留公司名、产品名、金额、设备名、平台名或监管/诉讼对象。',
+    '长度以 18-42 个汉字优先；不带来源、链接、序号、引号，也不要写评论和影响预测。',
+    '如果标题和原摘要信息冲突，以标题为准；原摘要只用于补充董事会、融资金额、开放对象、设备功能等具体信息。',
+    '禁止输出“发布海外科技新进展”“发布新的科技产品进展”“支持代理交易”“推动生态发展”这类缺少具体事件的句子。',
+    '必须严格输出 JSON，对象格式为 {"items":[{"candidateId":"c01","summary":"..."}]}，items 顺序必须和候选顺序一致。',
+    '候选列表：',
+    ...(candidates.length > 0
+      ? candidates.map((candidate) =>
+          formatOverseasTechNewsLlmCandidateLine(
+            candidate.candidateId,
+            candidate.item,
+          ),
         )
       : ['无']),
   ].join('\n');
@@ -4828,6 +5036,99 @@ function normalizeTechAiSummaryItems(payload, candidates, config) {
   return selectedItems;
 }
 
+function normalizeOverseasTechNewsLlmItems(payload, candidates, config) {
+  const candidateMap = new Map(
+    candidates.map((entry) => [entry.candidateId, entry]),
+  );
+  const selectedItems = [];
+  const seenCandidateIds = new Set();
+  const seenFingerprints = [];
+
+  function pushItem(candidateEntry, rawItem = null) {
+    const normalizedEntry = rawItem
+      ? normalizeNewsLlmSelectedItem(
+          rawItem,
+          candidateEntry,
+          config,
+          'overseas-tech',
+          buildOverseasTechNewsItem,
+        )
+      : {
+          candidateId: candidateEntry.candidateId,
+          item: buildOverseasTechNewsItem(
+            {
+              ...candidateEntry.item,
+              fingerprint: buildNewsFingerprint(
+                candidateEntry.item,
+                'overseas-tech',
+              ),
+            },
+            config.newsSummaryMaxLength,
+          ),
+        };
+    const normalizedItem = normalizedEntry.item;
+    const normalizedFingerprint = buildNewsFingerprint(
+      normalizedItem,
+      'overseas-tech',
+    );
+    const summaryFingerprint = buildSummaryFingerprint(
+      normalizedItem,
+      'overseas-tech',
+    );
+
+    if (
+      isLowQualityOverseasTechSummaryLine(normalizedItem.summary) ||
+      shouldSkipNewsByFingerprint(normalizedFingerprint, seenFingerprints) ||
+      shouldSkipNewsByFingerprint(summaryFingerprint, seenFingerprints)
+    ) {
+      return false;
+    }
+
+    selectedItems.push(normalizedItem);
+    seenCandidateIds.add(candidateEntry.candidateId);
+    if (normalizedFingerprint) {
+      seenFingerprints.push(normalizedFingerprint);
+    }
+    if (summaryFingerprint) {
+      seenFingerprints.push(summaryFingerprint);
+    }
+
+    return true;
+  }
+
+  for (const rawItem of payload?.items || []) {
+    const candidateId = String(rawItem?.candidateId || '').trim();
+    if (!candidateId || seenCandidateIds.has(candidateId)) {
+      continue;
+    }
+
+    const candidateEntry = candidateMap.get(candidateId);
+    if (!candidateEntry) {
+      continue;
+    }
+
+    if (
+      pushItem(candidateEntry, rawItem) &&
+      selectedItems.length >= config.overseasTechNewsLimit
+    ) {
+      break;
+    }
+  }
+
+  for (const candidateEntry of candidates) {
+    if (
+      selectedItems.length >= config.overseasTechNewsLimit ||
+      seenCandidateIds.has(candidateEntry.candidateId)
+    ) {
+      continue;
+    }
+
+    pushItem(candidateEntry, null);
+  }
+
+  return selectedItems.slice(0, config.overseasTechNewsLimit);
+}
+
 async function fetchLlmJsonWithGemini(prompt, config, responseJsonSchema) {
   const url = `${GEMINI_GENERATE_CONTENT_BASE_URL}${encodeURIComponent(
     config.aiNewsGeminiModel,
@@ -5028,6 +5329,36 @@ export async function generateTechAiNewsSummariesWithLlm(candidates, config) {
   );
 
   return normalizeTechAiSummaryItems(payload, candidates, config);
+}
+
+export async function generateOverseasTechNewsSummariesWithLlm(
+  candidates,
+  config,
+) {
+  const payload = await fetchNewsLlmPayload(
+    buildOverseasTechNewsSummaryPrompt(candidates),
+    config,
+    {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              candidateId: { type: 'string' },
+              summary: { type: 'string' },
+            },
+            required: ['candidateId', 'summary'],
+          },
+        },
+      },
+      required: ['items'],
+    },
+    '海外科技新闻摘要',
+  );
+
+  return normalizeOverseasTechNewsLlmItems(payload, candidates, config);
 }
 
 export async function generateTechAiNewsSummaryForCandidateWithLlm(
@@ -5481,10 +5812,35 @@ async function fetchOverseasTechNewsCategory(config) {
           items: candidateItems,
           filteredCount: 0,
         };
-  const items = crossSectionFilteredResult.items.slice(
+  let items = crossSectionFilteredResult.items.slice(
     0,
     config.overseasTechNewsLimit,
   );
+
+  if (
+    config.aiNewsLlmEnabled &&
+    resolveNewsLlmProviders(config).length > 0 &&
+    crossSectionFilteredResult.items.length > 0
+  ) {
+    try {
+      const llmItems = await generateOverseasTechNewsSummariesWithLlm(
+        buildOverseasTechNewsLlmCandidateList(
+          crossSectionFilteredResult.items.slice(0, candidateLimit),
+        ),
+        config,
+      );
+
+      if (llmItems.length > 0) {
+        items = llmItems.slice(0, config.overseasTechNewsLimit);
+      }
+    } catch (error) {
+      console.warn(
+        `[qq-market-bot] 海外科技新闻 LLM 摘要失败，已回退到规则摘要：${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
 
   if (items.length === 0) {
     const errors = feedResults
