@@ -35,6 +35,7 @@
 - P1: AI 候选源优先切到更稳定的国际/国内行业资讯源，并对 `RSS/Atom/HTML` 三类入口统一解析、加权与低优先级单源限流
 - P1: AI 主榜默认候选源既要保证质量，也要避免长期缩水到 `Top 3`；低质量聚合源只允许作为低优先级回填，并必须做事件级去重
 - P1: AI 主榜需要继续补充高质量海外源，优先接入可稳定直连的官方或一线媒体 RSS，覆盖 Google DeepMind、Microsoft Research、AWS Machine Learning、Hugging Face 与 MIT Technology Review AI
+- P1: AI 主榜需要将 `AI HOT` 公开精选 API 作为高优先级候选源接入，用它补强热点覆盖，但仍必须经过现有去重、热度排序、单源占比和摘要质量门
 - P1: 补充区块需要从海外 AI 改为 `海外科技 Top 5`，覆盖 The Verge、Ars Technica、Engadget、TechCrunch 等海外科技源，并与前面的 AI Top 10 去重
 - P1: 海外科技 Top 5 虽然来自英文 RSS，但最终消息必须输出中文硬新闻摘要，不能直接截断英文标题
 - P1: AI Top 10 与海外科技 Top 5 的最终摘要必须有明确主体、动作和对象；LLM 或规则回退输出泛化句、无主体短句时要继续回退到更具体的中文事件句
@@ -63,7 +64,8 @@
 - `CNBC` 页面行情结构若调整，需要保留 `Stooq` 之类可直接抓取价格的兜底源
 - `新浪`、`东方财富` 等价格源偶发超时或限流时，不能让 `Promise.all` 直接打断整轮播报
 - `第一财经` 资讯页与 `36氪` feed 的 HTML / RSS 结构可能调整，需要保留东方财富回退链路
-- `OpenAI`、`Google AI`、`Google DeepMind`、`Microsoft Research`、`AWS Machine Learning Blog`、`Hugging Face Blog`、`VentureBeat`、`NVIDIA`、`MIT Technology Review AI`、`The Decoder`、`AI News` 与 `量子位` 的 feed 结构可能调整；`AIBase` 仅作为低优先级回填，需要持续观察结构变化
+- `OpenAI`、`Google AI`、`Google DeepMind`、`AI HOT`、`Microsoft Research`、`AWS Machine Learning Blog`、`Hugging Face Blog`、`VentureBeat`、`NVIDIA`、`MIT Technology Review AI`、`The Decoder`、`AI News` 与 `量子位` 的 feed/API 结构可能调整；`AIBase` 仅作为低优先级回填，需要持续观察结构变化
+- `AI HOT` 公开接口需要浏览器 UA 才更稳，若 API 字段或访问策略变化，应只影响该源并自动由其他 AI 源补位
 - `Anthropic`、`Meta`、`Mistral` 等官方页面暂未提供当前脚本可稳定直连的 RSS 入口，本轮不强行接 HTML 解析，避免把页面结构耦合扩大到主流程
 - 国内高质量源数量短时不足时，需要接受低优先级回填补量，但必须限制单源占比和同事件改写稿，避免重新把热榜质量拉坏
 - 同一热点在不同时间段重复出现是可接受的，因为这能避免重要内容因跨时段去重而缺席

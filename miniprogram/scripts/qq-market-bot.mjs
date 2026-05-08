@@ -49,6 +49,8 @@ const ENGADGET_RSS_URL = 'https://www.engadget.com/rss.xml';
 const MIT_TECH_REVIEW_RSS_URL = 'https://www.technologyreview.com/feed/';
 const QBITAI_RSS_URL = 'https://www.qbitai.com/feed';
 const AIBASE_NEWS_URL = 'https://news.aibase.com/zh/news';
+const AIHOT_PUBLIC_ITEMS_URL =
+  'https://aihot.virxact.com/api/public/items?mode=selected&take=100';
 const EASTMONEY_FAST_NEWS_URL =
   'https://np-weblist.eastmoney.com/comm/web/getFastNewsList';
 const EASTMONEY_MIAOXIANG_NEWS_URL =
@@ -103,6 +105,11 @@ const DEFAULT_REQUEST_HEADERS = {
   'User-Agent': 'Mozilla/5.0 QQMarketBot/1.0',
   'Accept-Language': 'zh-CN,zh;q=0.9',
 };
+const AIHOT_REQUEST_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  Accept: 'application/json',
+};
 
 const NEWS_CATEGORY_CONFIG = {
   'tech-ai': {
@@ -137,6 +144,14 @@ export const TECH_AI_NEWS_SOURCES = [
     format: 'rss',
     sourcePriority: 9,
     region: 'international',
+  },
+  {
+    name: 'AI HOT',
+    url: AIHOT_PUBLIC_ITEMS_URL,
+    format: 'aihot-json',
+    sourcePriority: 7,
+    region: '',
+    headers: AIHOT_REQUEST_HEADERS,
   },
   {
     name: 'NVIDIA Blog',
@@ -2824,6 +2839,51 @@ export function parseAibaseNewsItems(
   return items;
 }
 
+function parseAihotNewsItems(
+  payload,
+  { sourceName = 'AI HOT', sourcePriority = 0, region = '' } = {},
+) {
+  const data = JSON.parse(payload);
+  const entries = Array.isArray(data?.items) ? data.items : [];
+
+  return entries
+    .map((entry) => {
+      const title = normalizeTechAiNewsTitle(
+        entry.titleZh || entry.title || '',
+      );
+      const summary = normalizeFeedSummary(
+        entry.summaryZh ||
+          entry.summary ||
+          entry.descriptionZh ||
+          entry.description ||
+          '',
+        title,
+      );
+      const originalSource = normalizeWhitespace(
+        entry.sourceName || entry.source || '',
+      );
+      const category = normalizeWhitespace(entry.category || '');
+      const publishedAt = entry.publishedAt
+        ? new Date(entry.publishedAt)
+        : null;
+      const context = [originalSource, category, summary]
+        .filter(Boolean)
+        .join(' | ');
+
+      return {
+        title,
+        summary,
+        source: sourceName,
+        publishedAt,
+        link: entry.sourceUrl || entry.url || '',
+        llmSummary: context || summary,
+        sourcePriority,
+        region: region || '',
+      };
+    })
+    .filter((item) => item.title);
+}
+
 export function parseTechAiSourceItems(payload, source, now = new Date()) {
   switch (source.format) {
     case 'atom':
@@ -2839,6 +2899,12 @@ export function parseTechAiSourceItems(payload, source, now = new Date()) {
         sourcePriority: source.sourcePriority,
         region: source.region,
         now,
+      });
+    case 'aihot-json':
+      return parseAihotNewsItems(payload, {
+        sourceName: source.name,
+        sourcePriority: source.sourcePriority,
+        region: source.region,
       });
     case 'rss':
     default:
@@ -3794,6 +3860,14 @@ function isExcludedTechAiNewsItem(item) {
 
   if (
     /(?:实测拿\d+项sota|撸代码|源码泄露案反转|竟是[“"]?钓鱼|大佬)/iu.test(title)
+  ) {
+    return true;
+  }
+
+  if (
+    /(?:doge|早就识破|人类的套路|一脉相承|显然是|不明觉厉|这波(?:稳了|赢麻了))/iu.test(
+      `${title} ${item.summary || ''}`,
+    )
   ) {
     return true;
   }
@@ -5582,7 +5656,9 @@ async function fetchTechAiNewsCategory(
   const now = new Date();
   const feedResults = await Promise.allSettled(
     sources.map(async (source) => {
-      const payload = await fetchTextWithFallbacks(source.url);
+      const payload = await fetchTextWithFallbacks(source.url, {
+        headers: source.headers || {},
+      });
       return parseTechAiSourceItems(payload, source, now);
     }),
   );

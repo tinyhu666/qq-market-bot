@@ -69,7 +69,7 @@
 - NapCat 首次部署后需要人工扫码授权 QQ 登录，未登录前 OneBot HTTP 接口可能无法真正返回业务状态
 - OneBot HTTP 接口如果开启 access token，包装脚本预检也必须带同一份鉴权头，否则不能把可达服务误判为异常
 - `第一财经`、`36氪` 或 `CNBC` 页面结构调整，导致标题或行情解析规则需要更新
-- `OpenAI`、`Google AI`、`Google DeepMind`、`Microsoft Research`、`AWS Machine Learning Blog`、`Hugging Face Blog`、`VentureBeat`、`NVIDIA`、`MIT Technology Review AI`、`The Decoder`、`AI News` 与 `AIBase` 等 AI 新闻源的 `RSS/Atom/HTML` 结构可能调整，需要保留多源回退与解析兼容
+- `OpenAI`、`Google AI`、`Google DeepMind`、`AI HOT`、`Microsoft Research`、`AWS Machine Learning Blog`、`Hugging Face Blog`、`VentureBeat`、`NVIDIA`、`MIT Technology Review AI`、`The Decoder`、`AI News` 与 `AIBase` 等 AI 新闻源的 `RSS/Atom/HTML/JSON` 结构可能调整，需要保留多源回退与解析兼容
 - `CNBC` 页面临时不可用时，需要退回到只保证价格可用的兜底源
 - 同一事件被多个中文科技源重复报道，需要做近似去重而不是只看完全相同标题
 - 当天后续时段如果候选新闻都已在更早一轮推送中过，需要明确提示“今天暂无新的新闻”，而不是重复旧内容
@@ -106,7 +106,8 @@
 - AI 候选需要优先满足主体明确和动作明确的硬新闻信号，专访、解读、教程、体验、活动和泛观点内容会被优先降权或过滤
 - `NDX`、`SPX` 在 Twelve Data 不可用且服务器访问新浪被拦截时，仍能通过 `CNBC` 或兜底源返回可用价格
 - 财经新闻优先使用标题型源，避免大面积残句、重复和公告腔，并在最终输出前经过大模型精简总结
-- AI 新闻候选优先由高权重国际/国内主源提供，默认组合增加 `Google DeepMind`、`Microsoft Research`、`AWS Machine Learning Blog`、`Hugging Face Blog`、`MIT Technology Review AI`、`The Decoder` 与 `AI News`，并允许 `AIBase` 以低优先级回填补量；同时必须限制低优先级单源上限并去掉同事件改写稿
+- AI 新闻候选优先由高权重国际/国内主源和精选源提供，默认组合增加 `Google DeepMind`、`AI HOT`、`Microsoft Research`、`AWS Machine Learning Blog`、`Hugging Face Blog`、`MIT Technology Review AI`、`The Decoder` 与 `AI News`，并允许 `AIBase` 以低优先级回填补量；同时必须限制低优先级单源上限并去掉同事件改写稿
+- `AI HOT` 应作为高优先级精选源接入 AI Top10 候选池，使用公开 selected items JSON 接口和浏览器 UA 请求头；其条目仍必须通过现有筛选、去重、热度排序、单源占比和摘要质量门
 - 同一模型或产品发布如果同时出现在官方博客、云厂商博客和 Hugging Face 等海外源，最终 AI Top 中只保留一条该事件
 - `ONEBOT_EXTRA_TARGETS` 支持同时配置多个群和私聊接收者，且不会与主目标重复发送
 - 不同时间段之间不再做“当天已发过”的跨时段去重，避免热点和重要内容在后续时段被跳过

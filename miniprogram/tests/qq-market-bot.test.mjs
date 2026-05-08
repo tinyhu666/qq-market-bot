@@ -875,14 +875,105 @@ test('parseTechAiSourceItems supports Atom feeds for international AI sources', 
   assert.equal(items[0].publishedAt?.toISOString(), '2026-03-25T16:35:43.000Z');
 });
 
+test('parseTechAiSourceItems supports AI HOT selected items JSON', () => {
+  const items = parseTechAiSourceItems(
+    JSON.stringify({
+      items: [
+        {
+          title: '消息称 Anthropic 拟今夏融资数百亿美元，冲击万亿估值',
+          summaryZh: 'Anthropic 计划新一轮融资，目标估值进一步上升。',
+          source: 'IT之家（RSS）',
+          category: 'industry',
+          publishedAt: '2026-05-08T05:40:09.000Z',
+          url: 'https://www.ithome.com/0/947/647.htm',
+        },
+      ],
+    }),
+    {
+      name: 'AI HOT',
+      format: 'aihot-json',
+      sourcePriority: 7,
+      region: '',
+    },
+  );
+
+  assert.equal(items.length, 1);
+  assert.equal(
+    items[0].title,
+    '消息称 Anthropic 拟今夏融资数百亿美元，冲击万亿估值',
+  );
+  assert.equal(
+    items[0].summary,
+    'Anthropic 计划新一轮融资，目标估值进一步上升。',
+  );
+  assert.equal(items[0].source, 'AI HOT');
+  assert.equal(items[0].sourcePriority, 7);
+  assert.equal(items[0].link, 'https://www.ithome.com/0/947/647.htm');
+  assert.equal(items[0].publishedAt?.toISOString(), '2026-05-08T05:40:09.000Z');
+  assert.match(items[0].llmSummary, /IT之家/u);
+  assert.match(items[0].llmSummary, /industry/u);
+});
+
 test('default AI sources include additional high-quality international feeds', () => {
   const sourceNames = TECH_AI_NEWS_SOURCES.map((source) => source.name);
 
+  assert.ok(sourceNames.includes('AI HOT'));
   assert.ok(sourceNames.includes('Google DeepMind'));
   assert.ok(sourceNames.includes('Microsoft Research'));
   assert.ok(sourceNames.includes('AWS Machine Learning Blog'));
   assert.ok(sourceNames.includes('Hugging Face Blog'));
   assert.ok(sourceNames.includes('MIT Technology Review AI'));
+});
+
+test('default AI HOT source is high priority and uses the public selected API', () => {
+  const source = TECH_AI_NEWS_SOURCES.find((item) => item.name === 'AI HOT');
+
+  assert.equal(source?.format, 'aihot-json');
+  assert.equal(source?.sourcePriority, 7);
+  assert.match(source?.url || '', /aihot\.virxact\.com\/api\/public\/items/u);
+  assert.match(source?.headers?.['User-Agent'] || '', /Mozilla\/5\.0/u);
+});
+
+test('selectTechAiNewsItems keeps AI HOT hard news but filters commentary-style selected items', () => {
+  const items = selectTechAiNewsItems(
+    [
+      {
+        title: '消息称 Anthropic 拟今夏融资数百亿美元，冲击万亿估值反超 OpenAI',
+        summary: 'Anthropic 计划新一轮融资，目标估值进一步上升。',
+        source: 'AI HOT',
+        sourcePriority: 7,
+        region: 'international',
+        publishedAt: new Date('2026-05-08T13:40:00+08:00'),
+      },
+      {
+        title: '原来Claude早就识破了人类的套路（doge）',
+        summary: 'Claude 相关社区讨论文章。',
+        source: 'AI HOT',
+        sourcePriority: 7,
+        region: 'international',
+        publishedAt: new Date('2026-05-08T13:45:00+08:00'),
+      },
+      {
+        title: '这跟中国的开源精神，显然是一脉相承的',
+        summary: 'AI 开源社区观点文章。',
+        source: 'AI HOT',
+        sourcePriority: 7,
+        region: 'domestic',
+        publishedAt: new Date('2026-05-08T13:50:00+08:00'),
+      },
+    ],
+    {
+      techAiNewsLimit: 5,
+      newsSummaryMaxLength: 64,
+    },
+    new Date('2026-05-08T14:00:00+08:00'),
+  );
+
+  assert.ok(items.some((item) => /Anthropic/u.test(item.title)));
+  assert.equal(
+    items.some((item) => /doge|开源精神/u.test(item.title)),
+    false,
+  );
 });
 
 test('default overseas tech sources include broad international tech feeds', () => {

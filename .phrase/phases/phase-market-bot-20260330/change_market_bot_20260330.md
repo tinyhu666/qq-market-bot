@@ -312,3 +312,9 @@ change309 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/is
 change310 日期:2026-05-08 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI 单条摘要回退 | 说明:真实线上 dry-run 发现 Parloa 摘要仍保留“客户愿意交谈的服务代理”这类 awkward 表达，改为优先使用明确中文事件兜底 | 关联:task053
 change311 日期:2026-05-08 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:摘要质量回归测试 | 说明:补充 Parloa 服务代理标题在 LLM 输出 awkward 中文时必须回退到规则化中文摘要的断言 | 关联:task053
 change312 日期:2026-05-08 | 文件:服务器:/home/ubuntu/stock-bot | 操作:Modify | 影响:线上运行版本 | 说明:同步 main 最新脚本、测试和 README 到服务器运行目录，服务器测试 57 项通过，并通过真实配置 dry-run 验证 AI 与海外科技摘要均为可读中文事件句 | 关联:task053
+change313 日期:2026-05-08 | 文件:miniprogram/scripts/qq-market-bot.mjs | 操作:Modify | 影响:AI HOT 新闻源接入 | 说明:新增 `AI HOT` 高优先级 selected items JSON 源、专用浏览器 UA 请求头和解析入口，并让抓取器按源传入请求头 | 关联:task054
+change314 日期:2026-05-08 | 文件:miniprogram/tests/qq-market-bot.test.mjs | 操作:Modify | 影响:新闻源解析回归测试 | 说明:补充 `AI HOT` JSON 解析、默认源高优先级和公开 API 配置断言 | 关联:task054
+change315 日期:2026-05-08 | 文件:miniprogram/README.md | 操作:Modify | 影响:机器人说明文档 | 说明:说明 `AI HOT` 作为高优先级精选源接入 AI Top10 候选池并仍受去重、热度和质量门约束 | 关联:task054
+change316 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/spec_market_bot_20260330.md | 操作:Modify | 影响:阶段规格 | 说明:补充 `AI HOT` JSON 源结构、浏览器 UA 和高优先级候选源验收口径 | 关联:task054
+change317 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/plan_market_bot_20260330.md | 操作:Modify | 影响:阶段计划 | 说明:补充 `AI HOT` 高优先级接入计划和 API 访问策略变化风险 | 关联:task054
+change318 日期:2026-05-08 | 文件:.phrase/phases/phase-market-bot-20260330/task_market_bot_20260330.md | 操作:Modify | 影响:阶段任务记录 | 说明:新增并完成 task054，记录 `AI HOT` 高优先级源接入与验证闭环 | 关联:task054
